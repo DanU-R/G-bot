@@ -104,13 +104,15 @@ def extract_verification_link(html_content):
     return None
 
 def find_chrome_executable():
-    """Finds the Chrome executable path on Windows using robust search."""
+    """Finds the Chrome executable path. Returns None if not found (auto-download)."""
     if CHROME_BINARY_PATH:
         print(f"DEBUG: Checking configured path: {CHROME_BINARY_PATH}")
         if os.path.exists(CHROME_BINARY_PATH):
             print("DEBUG: Configured path exists.")
             return CHROME_BINARY_PATH
-        return CHROME_BINARY_PATH # Return checks anyway
+        else:
+            print("DEBUG: Configured path NOT found. Switching to Auto-Download mode.")
+            return None
     return None
 
 def random_delay(min_s=0.5, max_s=1.5):
@@ -144,7 +146,6 @@ def activate_google_workspace(activation_link, email):
         driver = uc.Chrome(
             options=options, 
             browser_executable_path=chrome_path,
-            version_main=141
         )
     except Exception as e:
         print(f"Failed to initialize Chrome: {e}")
