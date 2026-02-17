@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+email_credentials.txt
+completed_accounts.txt
+processed_ids.txt
+processed_ids.bak
+found_path.txt
