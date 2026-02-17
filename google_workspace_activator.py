@@ -38,8 +38,8 @@ def send_telegram_message(message):
     except Exception as e:
         print(f"Failed to send Telegram message: {e}")
 
-# Chrome Binary Path (Playwright)
-CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
+# Chrome Binary Path (Set to None to let undetected_chromedriver download its own)
+CHROME_BINARY_PATH = None
 
 def get_available_domains():
     """Fetches available domains from mail.tm."""
