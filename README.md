@@ -69,6 +69,16 @@ This utility will:
 
 **Next Run**: The main script will generate a brand new email address and start fresh.
 
+## 🔐 Changing the Default Password
+
+By default, the bot sets the password for new accounts to `Sadewa123`. To change this:
+
+1.  Open `google_workspace_activator.py` in a text editor.
+2.  Search for the function `human_type(password_input, "Sadewa123")` (around line 211).
+3.  Replace `"Sadewa123"` with your desired password.
+4.  Also update the confirmation line shortly after: `human_type(confirm_input, "Sadewa123")`.
+
+
 ## 📂 File Structure
 - `google_workspace_activator.py`: Main bot script.
 - `reset_email.py`: Utility for cleaning data.
