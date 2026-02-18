@@ -141,6 +141,7 @@ def activate_google_workspace(activation_link, email):
         return
     
     try:
+        if not driver: return
         driver.get(activation_link)
         print(f"Page Title: {driver.title}")
         
@@ -327,9 +328,21 @@ def activate_google_workspace(activation_link, email):
     finally:
         # cleanup if needed, but undetected_chromedriver handles its own process usually
         try:
-            driver.quit()
-        except:
+            if 'driver' in locals() and driver:
+                driver.quit()
+        except OSError:
+            pass # Ignore WinError 6
+        except Exception:
             pass
+        
+        # Explicit kill to be safe between runs
+        try:
+             import psutil
+             for proc in psutil.process_iter():
+                 if "chrome" in proc.name().lower() and "--headless" in " ".join(proc.cmdline()):
+                      proc.kill()
+        except:
+             pass
 
 def cleanup_driver():
     """Forcefully cleans up lingering chrome/driver processes."""
@@ -405,165 +418,190 @@ def save_processed_id(msg_id):
         pass
 
 def main():
-    cleanup_driver() 
-    print("Initializing Mail.tm...")
+    # cleanup_driver() # Disabled to prevent interference
+    time.sleep(1)
     
-    email, password = load_credentials()
-    token = None
+    try:
+        print("Initializing Mail.tm...")
+        
+        email, password = load_credentials()
+        token = None
+        
+        if email and password:
+            print(f"Found existing credentials for: {email}")
+            print("Attempting to login...")
+            token = login(email, password)
+            if token:
+                print("Login successful.")
+            else:
+                print("Login failed. Creating new account...")
+                email = None 
+        
+        if not email or not token:
+            domains = get_available_domains()
+            if not domains:
+                print("No domains available on mail.tm")
+                return
     
-    if email and password:
-        print(f"Found existing credentials for: {email}")
-        print("Attempting to login...")
-        token = login(email, password)
-        if token:
-            print("Login successful.")
+            domain = domains[0]['domain']
+            email, password = create_account(domain)
+            token = get_token(email, password)
+            
+            print(f"\n--- CREATED ACCOUNT ---")
+            print(f"Email: {email}")
+            print(f"Password: {password}")
+            print(f"-----------------------\n")
+            
+            with open("c:\\hotspot\\autologin\\email_credentials.txt", "w") as f:
+                f.write(f"Email: {email}\nPassword: {password}")
+    
+        print("Please enter this email into your Google Admin Console to send the activation invitations.")
+        print(f"Current Email: {email}") 
+        
+        # CLI Argument Parsing
+        parser = argparse.ArgumentParser(description='Google Workspace Activator Bot')
+        parser.add_argument('--limit', type=int, default=0, help='Number of accounts to activate (0 for unlimited)')
+        parser.add_argument('--reset', action='store_true', help='Reset processed history')
+        parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode (default)')
+    
+        
+        # Parse args (if running from CLI)
+        args, unknown = parser.parse_known_args()
+    
+        # Determine Activation Limit
+        if args.limit > 0:
+            activation_limit = args.limit
+            print(f"Activation limit set to {activation_limit} (via CLI).")
+        elif args.limit == 0 and any(arg.startswith('--') for arg in sys.argv):
+            activation_limit = float('inf')
+            print("Activation limit set to Unlimited (via CLI).")
         else:
-            print("Login failed. Creating new account...")
-            email = None 
+            # Interactive Mode
+            try:
+                print("\nPress Enter for Unlimited (Default)...")
+                limit_input = input("How many accounts? ").strip()
+                activation_limit = int(limit_input) if limit_input.isdigit() else float('inf')
+            except Exception as e_input:
+                 print(f"Input error: {e_input}. Defaulting to unlimited.")
+                 activation_limit = float('inf')
+            
+        if activation_limit != float('inf'):
+             print(f"Will stop after {activation_limit} successful activations.")
     
-    if not email or not token:
-        domains = get_available_domains()
-        if not domains:
-            print("No domains available on mail.tm")
-            return
-
-        domain = domains[0]['domain']
-        email, password = create_account(domain)
-        token = get_token(email, password)
+        print("Waiting for NEW emails from Google... (Polling every 10 seconds)")
+        print("Press Ctrl+C to stop the script.")
         
-        print(f"\n--- CREATED ACCOUNT ---")
-        print(f"Email: {email}")
-        print(f"Password: {password}")
-        print(f"-----------------------\n")
-        
-        with open("c:\\hotspot\\autologin\\email_credentials.txt", "w") as f:
-            f.write(f"Email: {email}\nPassword: {password}")
+        processed_ids = load_processed_ids()
+        print(f"Loaded {len(processed_ids)} processed email IDs.")
+    except Exception as e_start:
+        print(f"Startup Error: {e_start}")
+        import traceback
+        traceback.print_exc()
+        return
 
-    print("Please enter this email into your Google Admin Console to send the activation invitations.")
-    print(f"Current Email: {email}") 
-    
-    # CLI Argument Parsing
-    parser = argparse.ArgumentParser(description='Google Workspace Activator Bot')
-    parser.add_argument('--limit', type=int, default=0, help='Number of accounts to activate (0 for unlimited)')
-    parser.add_argument('--reset', action='store_true', help='Reset processed history')
-    parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode (default)')
-
-    
-    # Parse args (if running from CLI)
-    args, unknown = parser.parse_known_args()
-
-    # Determine Activation Limit
-    if args.limit > 0:
-        activation_limit = args.limit
-        print(f"Activation limit set to {activation_limit} (via CLI).")
-    elif args.limit == 0 and any(arg.startswith('--') for arg in sys.argv):
-        activation_limit = float('inf')
-        print("Activation limit set to Unlimited (via CLI).")
-    else:
-        # Interactive Mode
-        try:
-            limit_input = input("\nHow many accounts do you want to activate? (Enter number, or press Enter for unlimited): ").strip()
-            activation_limit = int(limit_input) if limit_input.isdigit() else float('inf')
-        except:
-             activation_limit = float('inf')
-        
-    if activation_limit != float('inf'):
-         print(f"Will stop after {activation_limit} successful activations.")
-
-    print("Waiting for NEW emails from Google... (Polling every 10 seconds)")
-    print("Press Ctrl+C to stop the script.")
-    
-    processed_ids = load_processed_ids()
-    print(f"Loaded {len(processed_ids)} processed email IDs.")
-    
-    # History Reset Logic
-    should_reset = args.reset
-    if not should_reset and not any(arg.startswith('--') for arg in sys.argv):
-         # Ask interactive only if no CLI args found
-         reset_choice = input("Reset processed history? (Process ALL emails in inbox?) (y/n): ").strip().lower()
-         if reset_choice == 'y':
-             should_reset = True
-             
-    if should_reset:
-        print("History reset. Will process ALL matching emails found.")
-        processed_ids = set()
-        if os.path.exists(r"c:\hotspot\autologin\processed_ids.txt"):
+    # Moved reset logic inside try or keep here if safe
+    try:
+        # History Reset Logic
+        should_reset = args.reset
+        if not should_reset and not any(arg.startswith('--') for arg in sys.argv):
+             # Ask interactive only if no CLI args found
              try:
-                 os.rename(r"c:\hotspot\autologin\processed_ids.txt", r"c:\hotspot\autologin\processed_ids.bak")
-                 print("Backed up old history to processed_ids.bak")
+                 reset_choice = input("Reset processed history? (y/n): ").strip().lower()
+                 if reset_choice == 'y':
+                     should_reset = True
              except:
                  pass
-    
-    session_activations = 0
-
-    while True:
-        try:
-            if session_activations >= activation_limit:
-                print(f"\nReached limit of {activation_limit} activations. Stopping script.")
-                break
-
-            messages = get_messages(token)
-            # Sort messages by date (Newest First)
-            messages.sort(key=lambda x: x['createdAt'], reverse=True)
-            
-            new_activation_found = False
-            
-            for msg in messages:
-                if msg['id'] in processed_ids:
-                    continue
-                
-                if "google.com" in msg['from']['address'] or "Google" in msg['from']['name']:
-                     print(f"Processing new email from: {msg['from']['address']} (ID: {msg['id']})")
-                     full_msg = get_message_content(token, msg['id'])
-                     
-                     html = full_msg.get('html') or ""
-                     if isinstance(html, list): html = "".join(html)
-                     
-                     text = full_msg.get('text') or ""
-                     if isinstance(text, list): text = "".join(text)
-                     
-                     link = extract_verification_link(html) or extract_verification_link(text)
-                     workspace_email = extract_workspace_email(html, text)
-                     
-                     if link:
-                         print(f"Found activation link: {link}")
-                         target_email = workspace_email if workspace_email else f"Unknown_Workspace_Email"
-                         
-                         activate_google_workspace(link, target_email)
-                         
-                         processed_ids.add(msg['id'])
-                         save_processed_id(msg['id'])
-                         new_activation_found = True
-                         
-                         session_activations += 1
-                         
-                         success_msg = f"✅ Activated: `{target_email}`"
-                         print(success_msg)
-
-                         
-                         print(f"Session Activations: {session_activations}/{activation_limit if activation_limit != float('inf') else 'Unlimited'}")
-                         
-                         if session_activations >= activation_limit:
-                             print("Limit reached in inner loop.")
-                             print(f"🛑 **Batch Completed**: {session_activations} accounts activated.")
-                             break
-                             
-                         print("Waiting for NEXT email...")
-                     else:
-                         print("Google email found but no activation link. Marking processed.")
-                         processed_ids.add(msg['id'])
-                         save_processed_id(msg['id'])
-            
-            if not new_activation_found and session_activations < activation_limit:
-                 print(f"\rWaiting for new emails... (Checked at {time.strftime('%H:%M:%S')})", end="", flush=True)
-                 time.sleep(10)
                  
-        except KeyboardInterrupt:
-            print("\nStopping script...")
-            break
-        except Exception as e:
-            print(f"Error polling messages: {e}")
-            time.sleep(10)
+        if should_reset:
+            print("History reset. Will process ALL matching emails found.")
+            processed_ids = set()
+            if os.path.exists(r"c:\hotspot\autologin\processed_ids.txt"):
+                 try:
+                     os.rename(r"c:\hotspot\autologin\processed_ids.txt", r"c:\hotspot\autologin\processed_ids.bak")
+                     print("Backed up old history to processed_ids.bak")
+                 except:
+                     pass
+        
+        session_activations = 0
+    
+        print("DEBUG: Entering main loop...")
+        while True:
+            try:
+                if session_activations >= activation_limit:
+                    print(f"\nReached limit of {activation_limit} activations. Stopping script.")
+                    break
+
+                messages = get_messages(token)
+                # Sort messages by date (Newest First)
+                messages.sort(key=lambda x: x['createdAt'], reverse=True)
+                
+                new_activation_found = False
+                
+                for msg in messages:
+                    if msg['id'] in processed_ids:
+                        continue
+                    
+                    if "google.com" in msg['from']['address'] or "Google" in msg['from']['name']:
+                         print(f"Processing new email from: {msg['from']['address']} (ID: {msg['id']})")
+                         full_msg = get_message_content(token, msg['id'])
+                         
+                         html = full_msg.get('html') or ""
+                         if isinstance(html, list): html = "".join(html)
+                         
+                         text = full_msg.get('text') or ""
+                         if isinstance(text, list): text = "".join(text)
+                         
+                         link = extract_verification_link(html) or extract_verification_link(text)
+                         workspace_email = extract_workspace_email(html, text)
+                         
+                         if link:
+                             print(f"Found activation link: {link}")
+                             target_email = workspace_email if workspace_email else f"Unknown_Workspace_Email"
+                             
+                             activate_google_workspace(link, target_email)
+                             
+                             processed_ids.add(msg['id'])
+                             save_processed_id(msg['id'])
+                             new_activation_found = True
+                             
+                             session_activations += 1
+                             
+                             success_msg = f"✅ Activated: `{target_email}`"
+                             print(success_msg)
+
+                             
+                             print(f"Session Activations: {session_activations}/{activation_limit if activation_limit != float('inf') else 'Unlimited'}")
+                             
+                             if session_activations >= activation_limit:
+                                 print("Limit reached in inner loop.")
+                                 print(f"🛑 **Batch Completed**: {session_activations} accounts activated.")
+                                 break
+                                 
+                             print("Waiting for NEXT email...")
+                         else:
+                             print("Google email found but no activation link. Marking processed.")
+                             processed_ids.add(msg['id'])
+                             save_processed_id(msg['id'])
+                
+                if not new_activation_found and session_activations < activation_limit:
+                     print(f"\rWaiting for new emails... (Checked at {time.strftime('%H:%M:%S')})", end="", flush=True)
+                     time.sleep(10)
+                 
+            except KeyboardInterrupt:
+                print("\nStopping script...")
+                break
+            except Exception as e:
+                print(f"Error polling messages: {e}")
+                time.sleep(10)
+
+    except Exception as e_main:
+        print(f"Critical Error in Main Loop: {e_main}")
+        time.sleep(5)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nScript cancelled by user.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")

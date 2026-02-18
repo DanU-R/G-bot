@@ -2,3 +2,4 @@ requests
 beautifulsoup4
 undetected-chromedriver
 setuptools
+python-dotenv

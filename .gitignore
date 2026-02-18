@@ -6,3 +6,9 @@ completed_accounts.txt
 processed_ids.txt
 processed_ids.bak
 found_path.txt
+
+# Chrome Profile (Heavy & Sensitive)
+chrome_profile/
+
+# Logs
+created_users_log.txt

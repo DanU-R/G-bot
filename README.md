@@ -1,93 +1,100 @@
-# Google Workspace Activator Bot (Local Version)
+# Google Workspace Admin Bot
+
+A powerful Python toolkit for automating Google Workspace admin tasks and user management. This project helps you bulk create users, mass delete them, and automatically accept workspace invitations.
 
 ## 📌 Overview
-This Python tool automates the activation of Google Workspace accounts. It is designed to run locally on your machine, using a **Mail.tm** temporary email address to receive activation links and **Undetected-Chromedriver** to process them automatically.
 
-> **Note**: This version is optimized for local usage and does not require Telegram integration.
+This project consists of two main scripts:
 
-## ✨ Features
-- **Auto-Email Generation**: Automatically creates a persistent temporary email on the first run.
-- **Smart Activation**: Detects activation emails from Google and processes the "Accept" and "Password Creation" steps.
-- **Headless Operation**: Runs silently in the background (default) or visible mode.
-- **Full Data Reset**: Includes a utility to completely wipe credentials and history for a fresh start.
-- **Duplicate Prevention**: Tracks processed email IDs to confirm each account is only activated once.
+### 1. `admin_login.py` (Admin Console Bot)
+Automates tasks directly in the Google Admin Console (admin.google.com).
+- **Session Persistence**: Saves your login session so you don't need to re-enter credentials every time.
+- **Mode 1: Bulk User Creation**: Creates multiple users in a single batch.
+- **Mode 2: Mass Delete**: Automatically selects all users (except admin) and deletes them via bulk actions.
+
+### 2. `google_workspace_activator.py` (Invitation Activator)
+Automates the acceptance of Google Workspace invitations sent to external email addresses.
+- **Temp Email Integration**: Uses Mail.tm API to generate and manage a temporary email address.
+- **Auto-Activation**: Detects invitation emails, clicks the link, and sets up the account password.
+- **Smart Logic**: Handles different invitation formats and prevents duplicate activations.
 
 ## 🛠 Prerequisites
+
 - **Python 3.9+** installed.
-- **Google Chrome** browser installed.
+- **Google Chrome** installed.
 - **Internet Connection** (stable).
 
 ## 🚀 Installation
 
-1.  **Clone the Repository** (or download the files).
-2.  **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    *If `requirements.txt` is missing, run:*
-    ```bash
-    pip install requests beautifulsoup4 undetected-chromedriver
-    ```
+1. **Clone/Download** this repository.
+2. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Configure Environment**:
+   Create a `.env` file in the project folder:
+   ```env
+   ADMIN_EMAIL=admin@yourdomain.com
+   ADMIN_PASSWORD=your_password_here
+   ADMIN_CONSOLE_URL=https://admin.google.com/
+   ```
 
-## 📖 Usage Workflow
+## 📖 How to Use
 
-1.  **Start the Bot**:
-    ```bash
-    python google_workspace_activator.py
-    ```
-2.  **Get the Email**:
-    - On the first run, the bot will generate a new email (e.g., `user@domain.com`).
-    - **Copy this email** and invite it from your **Google Admin Console**.
-3.  **Wait for Activation**:
-    - The bot polls the inbox every 10 seconds.
-    - When an invitation arrives, it opens the link and sets up the account with a default password (usually `Sadewa123`).
-4.  **Completion**:
-    - Successful activations are logged in `completed_accounts.txt`.
-
-## ⚙️ Command Line Options
-
-| Command | Description |
-| :--- | :--- |
-| `python google_workspace_activator.py` | Standard run (Interactive limit selection). |
-| `python google_workspace_activator.py --limit 10` | Stop after 10 successful activations. |
-| `python google_workspace_activator.py --reset` | **Re-process** all emails in the inbox (ignore history). |
-| `python google_workspace_activator.py --headless` | Run without opening the browser window (Default). |
-
-## 🔄 Full Data Reset (Factory Reset)
-
-If you need to switch to a **new email address** or clear all history:
-
+### 1. Managing Users (`admin_login.py`)
+Run the admin bot:
 ```bash
-python reset_email.py
+python admin_login.py
 ```
+You will be prompted to select a mode:
+- **[1] Create Bulk Users**:  
+  Useful for populating the workspace with test users.
+- **[2] Mass Delete Users**:  
+  **Warning**: This deletes all users *except* the admin account defined in `.env`.
+  - It selects all users.
+  - Unchecks the admin account.
+  - Clicks "More Options" -> "Delete selected users".
+  - Confirms the deletion dialog.
 
-This utility will:
-1.  Ask for confirmation.
-2.  **Delete** your current Mail.tm credentials (`email_credentials.txt`).
-3.  **Delete** processing history (`processed_ids.txt`, `completed_accounts.txt`).
-4.  **Clean** temporary cache files (`__pycache__`).
+### 2. Activating Accounts (`google_workspace_activator.py`)
+Run the activator bot:
+```bash
+python google_workspace_activator.py
+```
+- On the first run, it generates a new email address (saved in `email_credentials.txt`).
+- **Copy this email** and invite it from your Google Admin Console.
+- The bot will poll for emails and auto-activate the account when the invitation arrives.
 
-**Next Run**: The main script will generate a brand new email address and start fresh.
+**Options**:
+- `--limit N`: Stop after N successful activations.
+- `--reset`: Ignore history and re-process all emails.
+- `--headless`: Run without visible browser (default).
 
-## 🔐 Changing the Default Password
+## � File Structure
 
-By default, the bot sets the password for new accounts to `Sadewa123`. To change this:
+- **Core Scripts**:
+  - `admin_login.py`: Main Admin Console automation script.
+  - `google_workspace_activator.py`: Account activation automation script.
+  - `reset_email.py`: Utility to wipe data and start fresh.
 
-1.  Open `google_workspace_activator.py` in a text editor.
-2.  Search for the function `human_type(password_input, "Sadewa123")` (around line 211).
-3.  Replace `"Sadewa123"` with your desired password.
-4.  Also update the confirmation line shortly after: `human_type(confirm_input, "Sadewa123")`.
-
-
-## 📂 File Structure
-- `google_workspace_activator.py`: Main bot script.
-- `reset_email.py`: Utility for cleaning data.
-- `email_credentials.txt`: Stores your current temp email login.
-- `completed_accounts.txt`: Log of activated accounts.
-- `processed_ids.txt`: Database of processed email IDs.
+- **Data Files**:
+  - `.env`: Your admin credentials (keep secret!).
+  - `email_credentials.txt`: Generated temp email login.
+  - `completed_accounts.txt`: Log of successfully activated accounts.
+  - `created_users_log.txt`: Log of users created via bulk creation.
+  - `processed_ids.txt`: History of processed email IDs to prevent duplicates.
+  - `chrome_profile/`: Folder storing your browser session.
 
 ## ❓ Troubleshooting
 
-- **Browser Closes Immediately**: Typically a version mismatch. Run `pip install --upgrade undetected-chromedriver`.
-- **"Chrome Not Found"**: Ensure Google Chrome is installed in the default location.
-- **Stuck on "Waiting..."**: Check if the email was actually sent to the correct address shown in the terminal.
+| Issue | Solution |
+| :--- | :--- |
+| **Browser doesn't open** | Run `pip install --upgrade undetected-chromedriver` setup. |
+| **"Chrome Not Found"** | Check if Chrome is installed in the standard location. |
+| **Script stops/crashes** | Press `Ctrl+C` to cancel safely. Check error logs. |
+| **Login Loop/Captcha** | Delete the `chrome_profile` folder and try again to clear session cache. |
+| **Mass Delete Fails** | Ensure language is English or Indonesian (script supports both). |
+
+## 🔐 Security Note
+- Credentials in `.env` and `email_credentials.txt` are stored locally in plain text. Do not share these files.
+- This tool is for educational and authorized administrative use only.
