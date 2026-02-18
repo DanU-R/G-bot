@@ -18,28 +18,10 @@ import sys
 # Mail.tm API Configuration
 MAIL_TM_API_URL = "https://api.mail.tm"
 
-# Telegram Configuration (Environment Variables)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_telegram_message(message):
-    """Sends a notification to Telegram."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        return
-    
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    try:
-        requests.post(url, json=payload, timeout=5)
-    except Exception as e:
-        print(f"Failed to send Telegram message: {e}")
 
-# Chrome Binary Path (Set to None to let undetected_chromedriver download its own)
-CHROME_BINARY_PATH = None
+# Chrome Binary Path (Playwright) - Used for Local Windows Execution
+CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
 
 def get_available_domains():
     """Fetches available domains from mail.tm."""
@@ -142,11 +124,18 @@ def activate_google_workspace(activation_link, email):
     options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     try:
-        # Use explicit path and match version to browser (141)
-        driver = uc.Chrome(
-            options=options, 
-            browser_executable_path=chrome_path,
-        )
+        if chrome_path:
+            print(f"Initializing Chrome (Local) with version match 141...")
+            driver = uc.Chrome(
+                options=options, 
+                browser_executable_path=chrome_path,
+                version_main=141
+            )
+        else:
+            print(f"Initializing Chrome (Cloud/Auto) with latest version...")
+            driver = uc.Chrome(
+                options=options
+            )
     except Exception as e:
         print(f"Failed to initialize Chrome: {e}")
         return
@@ -262,10 +251,64 @@ def activate_google_workspace(activation_link, email):
                     confirmed_email = match.group(1)
                     print(f"Confirmed Account Email from UI (iframe): {confirmed_email}")
                     found_in_ui = True
-                driver.switch_to.default_content()
             except Exception as e:
                  print(f"Iframe check failed: {e}")
                  driver.switch_to.default_content()
+
+        # Strategy 3: 'Dikelola oleh' in dialog (User Request)
+        if not found_in_ui:
+            try:
+                print("Checking 'Dikelola oleh' in dialog...")
+                # Find dialog
+                dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+                for dialog in dialogs:
+                    links = dialog.find_elements(By.TAG_NAME, "a")
+                    for link in links:
+                        if "Dikelola oleh" in link.text or "Managed by" in link.text:
+                            found_id = link.get_attribute("id")
+                            print(f"Found 'Dikelola oleh' link ID: {found_id}")
+                            
+                            # Check aria-labelledby to find the User Account info element
+                            aria_label_ids = link.get_attribute("aria-labelledby")
+                            if aria_label_ids:
+                                print(f"Found aria-labelledby: {aria_label_ids}")
+                                ids = aria_label_ids.split()
+                                for aid in ids:
+                                    if aid != found_id: # The other ID usually points to the account content
+                                        try:
+                                            related_elem = driver.find_element(By.ID, aid)
+                                            print(f"DEBUG: Found object with ID '{aid}'. Text Content: '{related_elem.text}'")
+                                            
+                                            # Regex search in the related element
+                                            content_match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", related_elem.text)
+                                            if content_match:
+                                                confirmed_email = content_match.group(1)
+                                                print(f"Confirmed Account Email from Object (Strategy 3 - Aria): {confirmed_email}")
+                                                found_in_ui = True
+                                        except Exception as e_inner:
+                                            print(f"DEBUG: Could not read object '{aid}': {e_inner}")
+                            
+                            if found_in_ui: break
+                            
+                    if found_in_ui: break
+            except Exception as e:
+                print(f"Strategy 3 failed: {e}")
+
+        # Strategy 4: Brute Force Dialog Text (Fallback)
+        if not found_in_ui:
+            try:
+                print("Strategy 4: Scanning entire dialog text...")
+                dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+                for dialog in dialogs:
+                    print(f"DEBUG: Dialog Text: {dialog.text[:100]}...") # Print first 100 chars
+                    match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", dialog.text)
+                    if match:
+                         confirmed_email = match.group(1)
+                         print(f"Confirmed Account Email from Dialog Text (Strategy 4): {confirmed_email}")
+                         found_in_ui = True
+                         break
+            except:
+                pass
 
         if not confirmed_email:
             confirmed_email = "Unknown_Email_Check_Manually"
@@ -328,7 +371,9 @@ def extract_workspace_email(html_content, text_content):
     """Extracts the Google Workspace email from the message."""
     patterns = [
         r"Welcome to your new Google Account for\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+        r"Selamat datang di Akun Google baru Anda untuk\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"Username:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+        r"Nama pengguna:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"
     ]
     
@@ -338,6 +383,9 @@ def extract_workspace_email(html_content, text_content):
             match = re.search(pattern, content)
             if match:
                 return match.group(1)
+    
+    print("DEBUG: Could not extract email. Dumping content snippet:")
+    print(text_content[:200] if text_content else "No Text Content")
     return None
 
 def load_processed_ids():
@@ -399,7 +447,7 @@ def main():
     parser.add_argument('--limit', type=int, default=0, help='Number of accounts to activate (0 for unlimited)')
     parser.add_argument('--reset', action='store_true', help='Reset processed history')
     parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode (default)')
-    parser.add_argument('--telegram', action='store_true', help='Send notifications to Telegram')
+
     
     # Parse args (if running from CLI)
     args, unknown = parser.parse_known_args()
@@ -491,13 +539,13 @@ def main():
                          
                          success_msg = f"✅ Activated: `{target_email}`"
                          print(success_msg)
-                         send_telegram_message(success_msg)
+
                          
                          print(f"Session Activations: {session_activations}/{activation_limit if activation_limit != float('inf') else 'Unlimited'}")
                          
                          if session_activations >= activation_limit:
                              print("Limit reached in inner loop.")
-                             send_telegram_message(f"🛑 **Batch Completed**: {session_activations} accounts activated.")
+                             print(f"🛑 **Batch Completed**: {session_activations} accounts activated.")
                              break
                              
                          print("Waiting for NEXT email...")

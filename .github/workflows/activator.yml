@@ -30,13 +30,10 @@ jobs:
         sudo apt-get install -y google-chrome-stable
 
     - name: Run Activator Script
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         # Run with limit of 10 accounts per execution to be safe
         # Headless is default in script now
-        python google_workspace_activator.py --limit 10 --telegram
+        python google_workspace_activator.py --limit 10
 
     - name: Commit Processed IDs
       run: |
