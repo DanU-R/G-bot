@@ -355,7 +355,7 @@ def find_chrome_executable():
         return CHROME_BINARY_PATH
     return None
 
-def login_admin_console():
+def login_admin_console(action=None):
     if not ADMIN_EMAIL or not ADMIN_PASSWORD:
         print("ERROR: Please set ADMIN_EMAIL and ADMIN_PASSWORD in .env file.")
         return
@@ -399,18 +399,28 @@ def login_admin_console():
                  raise Exception("Password field detected! Session requires re-authentication.")
                  
              print("✅ Existing session found! Skipping credentials entry.")
-             print("\n" + "="*40)
-             print(" MODE SELECTION")
-             print("="*40)
-             print("[1] Create Bulk Users (Buat User Baru)")
-             print("[2] Mass Delete Users (Hapus Masal)")
              
-             mode_choice = input("Select Mode (1/2): ").strip()
-             
-             if mode_choice == "2":
-                 run_mass_delete(driver)
+             if action:
+                 print(f"Action '{action}' pre-selected.")
+                 if action == "delete":
+                     run_mass_delete(driver)
+                 elif action == "create":
+                     run_batch_creation(driver)
+                 else:
+                     print(f"Unknown action: {action}")
              else:
-                 run_batch_creation(driver)
+                 print("\n" + "="*40)
+                 print(" MODE SELECTION")
+                 print("="*40)
+                 print("[1] Create Bulk Users (Buat User Baru)")
+                 print("[2] Mass Delete Users (Hapus Masal)")
+                 
+                 mode_choice = input("Select Mode (1/2): ").strip()
+                 
+                 if mode_choice == "2":
+                     run_mass_delete(driver)
+                 else:
+                     run_batch_creation(driver)
                  
              return 
         except Exception as e_session:
@@ -485,18 +495,29 @@ def login_admin_console():
             )
             print(f"SUCCESS: Logged in! Current URL: {driver.current_url}")
             
-            print("\n" + "="*40)
-            print(" MODE SELECTION")
-            print("="*40)
-            print("[1] Create Bulk Users (Buat User Baru)")
-            print("[2] Mass Delete Users (Hapus Masal)")
+            print(f"SUCCESS: Logged in! Current URL: {driver.current_url}")
             
-            mode_choice = input("Select Mode (1/2): ").strip()
-            
-            if mode_choice == "2":
-                run_mass_delete(driver)
+            if action:
+                 print(f"Action '{action}' pre-selected.")
+                 if action == "delete":
+                     run_mass_delete(driver)
+                 elif action == "create":
+                     run_batch_creation(driver)
+                 else:
+                     print(f"Unknown action: {action}")
             else:
-                run_batch_creation(driver)
+                print("\n" + "="*40)
+                print(" MODE SELECTION")
+                print("="*40)
+                print("[1] Create Bulk Users (Buat User Baru)")
+                print("[2] Mass Delete Users (Hapus Masal)")
+                
+                mode_choice = input("Select Mode (1/2): ").strip()
+                
+                if mode_choice == "2":
+                    run_mass_delete(driver)
+                else:
+                    run_batch_creation(driver)
             
         except Exception as e:
              print(f"Login verification failed (Timeout or Error): {e}")

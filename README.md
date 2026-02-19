@@ -42,12 +42,20 @@ Automates the acceptance of Google Workspace invitations sent to external email 
 
 ## 📖 How to Use
 
-### 1. Managing Users (`admin_login.py`)
-Run the admin bot:
+### 1. Unified Management (`main.py`)
+Run the main menu to access all features:
 ```bash
-python admin_login.py
+python main.py
 ```
-You will be prompted to select a mode:
+From here you can select:
+1.  **Add User**: Logs in to Admin Console and starts user creation.
+2.  **Delete User**: Logs in to Admin Console and starts mass deletion.
+3.  **Activate Accounts**: Runs the improved activator bot.
+4.  **Reset Email Data**: Clears temp email and logs.
+
+### 2. Manual Execution (Legacy)
+You can still run scripts individually if needed:
+- **Admin Bot**: `python admin_login.py`
 - **[1] Create Bulk Users**:  
   Useful for populating the workspace with test users.
   - **Base Name**: Enter a prefix (e.g., "Student"). Leave empty for defaults.
@@ -63,7 +71,7 @@ You will be prompted to select a mode:
   - Clicks "More Options" -> "Delete selected users".
   - Confirms the deletion dialog.
 
-### 2. Activating Accounts (`google_workspace_activator.py`)
+### 3. Activating Accounts (`google_workspace_activator.py`)
 Run the activator bot:
 ```bash
 python google_workspace_activator.py
