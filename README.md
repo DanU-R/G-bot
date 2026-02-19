@@ -37,6 +37,7 @@ Automates the acceptance of Google Workspace invitations sent to external email 
    ADMIN_EMAIL=admin@yourdomain.com
    ADMIN_PASSWORD=your_password_here
    ADMIN_CONSOLE_URL=https://admin.google.com/
+   DEFAULT_PASSWORD=Sadewa123  # Optional: Password for created gsuite accounts
    ```
 
 ## 📖 How to Use
@@ -49,8 +50,14 @@ python admin_login.py
 You will be prompted to select a mode:
 - **[1] Create Bulk Users**:  
   Useful for populating the workspace with test users.
+  - **Base Name**: Enter a prefix (e.g., "Student"). Leave empty for defaults.
+  - **Mode Selection**:
+    - `1` **Sequential**: Creates `Student1`, `Student2`, etc.
+    - `2` **Random**: Creates `Student849`, `Student102`, etc. (or purely random if no base name).
+  - **Count**: Specify how many users to create.
 - **[2] Mass Delete Users**:  
   **Warning**: This deletes all users *except* the admin account defined in `.env`.
+  > **Note**: Fitur ini belum berjalan dengan sempurna (This feature is not fully stable yet). Use with caution.
   - It selects all users.
   - Unchecks the admin account.
   - Clicks "More Options" -> "Delete selected users".
@@ -81,9 +88,19 @@ python google_workspace_activator.py
   - `.env`: Your admin credentials (keep secret!).
   - `email_credentials.txt`: Generated temp email login.
   - `completed_accounts.txt`: Log of successfully activated accounts.
-  - `created_users_log.txt`: Log of users created via bulk creation.
+  - `created_users_log.txt`: Log of users created via bulk creation (Format: `First|Last|Email|Password`).
   - `processed_ids.txt`: History of processed email IDs to prevent duplicates.
+
   - `chrome_profile/`: Folder storing your browser session.
+
+## 🍪 Managing the Chrome Profile
+
+The script creates a folder named `chrome_profile` to **save your login session**.
+- **Benefit**: You don't need to sign in every time you run the script.
+- **Troubleshooting**: If you need to **switch accounts**, get stuck in a **login loop**, or face **CAPTCHA issues**:
+  1. Stop the script (`Ctrl + C`).
+  2. **Delete the `chrome_profile` folder**.
+  3. Run the script again to force a fresh login.
 
 ## ❓ Troubleshooting
 

@@ -11,16 +11,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# Mail.tm API Configuration
 import argparse
 import sys
 
-# Mail.tm API Configuration
 MAIL_TM_API_URL = "https://api.mail.tm"
 
-
-
-# Chrome Binary Path (Playwright) - Used for Local Windows Execution
 CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
 
 def get_available_domains():
@@ -72,13 +67,11 @@ def extract_verification_link(html_content):
     """Extracts the verification link from the email HTML content."""
     soup = BeautifulSoup(html_content, 'html.parser')
     
-    # Try finding the 'Login' button or similar
     links = soup.find_all('a', href=True)
     for link in links:
         href = link['href']
         if "google.com" in href and ("setup" in href or "verify" in href or "accept" in href):
              return href
-        # Fallback: look for button text
         text = link.get_text().lower()
         if "login" in text or "sign in" in text or "accept" in text:
             return href
@@ -145,15 +138,12 @@ def activate_google_workspace(activation_link, email):
         driver.get(activation_link)
         print(f"Page Title: {driver.title}")
         
-        # Welcome Page Logic
         print("Waiting for Welcome page...")
         random_delay(2, 4)
         
-        # Scroll
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         random_delay(1, 2)
         
-        # Find and click 'I understand'
         print("Looking for 'I understand' button...")
         try:
             accept_button = WebDriverWait(driver, 10).until(
@@ -185,7 +175,6 @@ def activate_google_workspace(activation_link, email):
         
         random_delay(2, 3)
 
-        # Password Page Logic
         print("Waiting for Password input...")
         password_input = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "input[name='Password'], input[name='password'], input[type='password']"))
@@ -205,7 +194,6 @@ def activate_google_workspace(activation_link, email):
         print("Passwords entered.")
         random_delay()
         
-        # Submit
         print("Looking for Submit button...")
         try:
             submit_btn = driver.find_element(By.CSS_SELECTOR, "input[type='submit'], input[id='submit'], button[type='submit']")
@@ -219,16 +207,14 @@ def activate_google_workspace(activation_link, email):
             except Exception as e:
                 print(f"Could not click submit: {e}")
         
-        random_delay(3, 5) # Wait for confirmation page
+        random_delay(3, 5) 
         print(f"Page Title after submit: {driver.title}")
         
-        # Scrape confirmed email from UI
         confirmed_email = email 
         if "Unknown" in confirmed_email: confirmed_email = None 
         
         found_in_ui = False
         
-        # Strategy 1: Check div.eYSAde in main frame
         if not found_in_ui:
             try:
                  email_element = WebDriverWait(driver, 5).until(
@@ -241,7 +227,6 @@ def activate_google_workspace(activation_link, email):
             except:
                  pass
         
-        # Strategy 2: Switch to iframe 'account'
         if not found_in_ui:
             try:
                 print("Checking iframe 'account' for email...")
@@ -256,11 +241,9 @@ def activate_google_workspace(activation_link, email):
                  print(f"Iframe check failed: {e}")
                  driver.switch_to.default_content()
 
-        # Strategy 3: 'Dikelola oleh' in dialog (User Request)
         if not found_in_ui:
             try:
                 print("Checking 'Dikelola oleh' in dialog...")
-                # Find dialog
                 dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
                 for dialog in dialogs:
                     links = dialog.find_elements(By.TAG_NAME, "a")
@@ -269,18 +252,16 @@ def activate_google_workspace(activation_link, email):
                             found_id = link.get_attribute("id")
                             print(f"Found 'Dikelola oleh' link ID: {found_id}")
                             
-                            # Check aria-labelledby to find the User Account info element
                             aria_label_ids = link.get_attribute("aria-labelledby")
                             if aria_label_ids:
                                 print(f"Found aria-labelledby: {aria_label_ids}")
                                 ids = aria_label_ids.split()
                                 for aid in ids:
-                                    if aid != found_id: # The other ID usually points to the account content
+                                    if aid != found_id: 
                                         try:
                                             related_elem = driver.find_element(By.ID, aid)
                                             print(f"DEBUG: Found object with ID '{aid}'. Text Content: '{related_elem.text}'")
                                             
-                                            # Regex search in the related element
                                             content_match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", related_elem.text)
                                             if content_match:
                                                 confirmed_email = content_match.group(1)
@@ -295,13 +276,12 @@ def activate_google_workspace(activation_link, email):
             except Exception as e:
                 print(f"Strategy 3 failed: {e}")
 
-        # Strategy 4: Brute Force Dialog Text (Fallback)
         if not found_in_ui:
             try:
                 print("Strategy 4: Scanning entire dialog text...")
                 dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
                 for dialog in dialogs:
-                    print(f"DEBUG: Dialog Text: {dialog.text[:100]}...") # Print first 100 chars
+                    print(f"DEBUG: Dialog Text: {dialog.text[:100]}...") 
                     match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", dialog.text)
                     if match:
                          confirmed_email = match.group(1)
@@ -326,16 +306,14 @@ def activate_google_workspace(activation_link, email):
     except Exception as e:
         print(f"An error occurred during browser automation: {e}")
     finally:
-        # cleanup if needed, but undetected_chromedriver handles its own process usually
         try:
             if 'driver' in locals() and driver:
                 driver.quit()
         except OSError:
-            pass # Ignore WinError 6
+            pass 
         except Exception:
             pass
         
-        # Explicit kill to be safe between runs
         try:
              import psutil
              for proc in psutil.process_iter():
@@ -418,7 +396,6 @@ def save_processed_id(msg_id):
         pass
 
 def main():
-    # cleanup_driver() # Disabled to prevent interference
     time.sleep(1)
     
     try:
@@ -458,17 +435,14 @@ def main():
         print("Please enter this email into your Google Admin Console to send the activation invitations.")
         print(f"Current Email: {email}") 
         
-        # CLI Argument Parsing
         parser = argparse.ArgumentParser(description='Google Workspace Activator Bot')
         parser.add_argument('--limit', type=int, default=0, help='Number of accounts to activate (0 for unlimited)')
         parser.add_argument('--reset', action='store_true', help='Reset processed history')
         parser.add_argument('--headless', action='store_true', default=True, help='Run in headless mode (default)')
     
         
-        # Parse args (if running from CLI)
         args, unknown = parser.parse_known_args()
     
-        # Determine Activation Limit
         if args.limit > 0:
             activation_limit = args.limit
             print(f"Activation limit set to {activation_limit} (via CLI).")
@@ -476,7 +450,6 @@ def main():
             activation_limit = float('inf')
             print("Activation limit set to Unlimited (via CLI).")
         else:
-            # Interactive Mode
             try:
                 print("\nPress Enter for Unlimited (Default)...")
                 limit_input = input("How many accounts? ").strip()
@@ -499,12 +472,9 @@ def main():
         traceback.print_exc()
         return
 
-    # Moved reset logic inside try or keep here if safe
     try:
-        # History Reset Logic
         should_reset = args.reset
         if not should_reset and not any(arg.startswith('--') for arg in sys.argv):
-             # Ask interactive only if no CLI args found
              try:
                  reset_choice = input("Reset processed history? (y/n): ").strip().lower()
                  if reset_choice == 'y':
@@ -532,7 +502,6 @@ def main():
                     break
 
                 messages = get_messages(token)
-                # Sort messages by date (Newest First)
                 messages.sort(key=lambda x: x['createdAt'], reverse=True)
                 
                 new_activation_found = False
@@ -568,7 +537,6 @@ def main():
                              
                              success_msg = f"✅ Activated: `{target_email}`"
                              print(success_msg)
-
                              
                              print(f"Session Activations: {session_activations}/{activation_limit if activation_limit != float('inf') else 'Unlimited'}")
                              

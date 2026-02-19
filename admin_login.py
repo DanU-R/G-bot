@@ -11,7 +11,6 @@ import requests
 import json
 import string
 
-# Load environment variables
 load_dotenv()
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
@@ -21,7 +20,6 @@ ADMIN_CONSOLE_URL = os.getenv("ADMIN_CONSOLE_URL", "https://admin.google.com/")
 def random_delay(min_s=1.0, max_s=3.0):
     time.sleep(random.uniform(min_s, max_s))
 
-# Mail.tm API Configuration
 MAIL_TM_API_URL = "https://api.mail.tm"
 
 def get_available_domains():
@@ -42,7 +40,6 @@ def create_temp_mail_account():
     """
     creds_file = r"c:\hotspot\autologin\email_credentials.txt"
     
-    # 1. Try reading existing credentials
     if os.path.exists(creds_file):
         try:
             with open(creds_file, "r") as f:
@@ -61,7 +58,6 @@ def create_temp_mail_account():
         except Exception as e:
             print(f"Error reading credentials file: {e}")
 
-    # 2. Create new if not found
     print("Generating NEW content from Mail.tm...")
     try:
         domains = get_available_domains()
@@ -70,14 +66,19 @@ def create_temp_mail_account():
             
         domain = domains[0]['domain']
         username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-        password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+        
+        default_pwd = os.getenv("DEFAULT_PASSWORD")
+        if default_pwd:
+             password = default_pwd
+        else:
+             password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+             
         email = f"{username}@{domain}"
         
         payload = {"address": email, "password": password}
         response = requests.post(f"{MAIL_TM_API_URL}/accounts", json=payload)
         response.raise_for_status()
         
-        # Save to file
         with open(creds_file, "w") as f:
             f.write(f"Email: {email}\nPassword: {password}\n")
             
@@ -100,7 +101,6 @@ def create_bulk_users(driver, user_data_list, secondary_email):
     """
     print(f"\n--- Starting Bulk Creation for {len(user_data_list)} Users ---")
     
-    # 1. Navigate/Click "Add User" (Same detection logic)
     try:
         print("Looking for 'Add user' / 'Tambahkan pengguna' button...")
         add_user_btn = WebDriverWait(driver, 5).until(
@@ -115,7 +115,6 @@ def create_bulk_users(driver, user_data_list, secondary_email):
     except:
         print("Direct Add button not found. ensuring we are on Users list or attempting Sidebar...")
         try:
-             # Ensure we are on the users list 
              if "/ac/users" not in driver.current_url:
                  driver.get("https://admin.google.com/ac/users")
                  random_delay(3, 5)
@@ -132,7 +131,6 @@ def create_bulk_users(driver, user_data_list, secondary_email):
     
     random_delay()
 
-    # 2. Fill Forms loop
     try:
         print("Waiting for User Details Form...")
         WebDriverWait(driver, 60).until(
@@ -142,16 +140,13 @@ def create_bulk_users(driver, user_data_list, secondary_email):
         for i, user in enumerate(user_data_list):
             print(f"  > Filling data for User {i+1}: {user['first']} {user['last']}")
             
-            # Re-fetch input lists every iteration to ensure we have fresh references and count
             first_name_inputs = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Nama depan'], input[aria-label='First name']")
             last_name_inputs = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Nama belakang'], input[aria-label='Last name']")
             sec_emails = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Alamat email sekunder'], input[aria-label='Secondary email']")
             
-            # Check if we need to add a new row
             if i >= len(first_name_inputs):
                 print("    Not enough rows. Clicking 'Tambahkan pengguna lain'...")
                 try:
-                    # Based on user snippet: <button ...><span ...>Tambahkan pengguna lain</span></button>
                     add_another_btn = driver.find_element(By.XPATH, 
                         "//span[contains(text(), 'Tambahkan pengguna lain')]/ancestor::button | " +
                         "//span[contains(text(), 'Add another user')]/ancestor::button"
@@ -159,30 +154,25 @@ def create_bulk_users(driver, user_data_list, secondary_email):
                     safe_click(driver, add_another_btn)
                     random_delay(1, 2)
                     
-                    # Refresh lists
                     first_name_inputs = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Nama depan'], input[aria-label='First name']")
                     last_name_inputs = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Nama belakang'], input[aria-label='Last name']")
                     sec_emails = driver.find_elements(By.CSS_SELECTOR, "input[aria-label='Alamat email sekunder'], input[aria-label='Secondary email']")
                 except Exception as e_add_row:
                     print(f"    ❌ Failed to add new row: {e_add_row}")
-                    break # Stop if we can't add more rows
+                    break 
             
-            # Fill Data
             human_type(first_name_inputs[i], user['first'])
             random_delay(0.5)
             human_type(last_name_inputs[i], user['last'])
             random_delay(0.5)
             
-            # Fill secondary email if available in this row
             if i < len(sec_emails):
-                 # Clear if pre-filled (though usually empty)
                  human_type(sec_emails[i], secondary_email)
             
             random_delay(0.5)
 
         print("All users filled.")
         
-        # 3. Click "Lanjutkan" (Continue)
         print("Looking for 'Lanjutkan' button...")
         continue_btn = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Lanjutkan')]/ancestor::div[@role='button'] | //span[contains(text(), 'Lanjutkan')]"))
@@ -190,12 +180,9 @@ def create_bulk_users(driver, user_data_list, secondary_email):
         safe_click(driver, continue_btn)
         print("Clicked 'Lanjutkan'.")
         
-        # 4. Handle "Send login instructions"
         print("Waiting for 'Kirim petunjuk login' button (Up to 30s)...")
-        # No hard delay needed if we use a long timeout. The bot will check every 500ms.
         
         try:
-             # Wait for button to be clickable (Dynamic)
              send_btn = WebDriverWait(driver, 30).until(
                  EC.element_to_be_clickable((By.XPATH, 
                     "//span[contains(text(), 'Kirim petunjuk login')]/ancestor::button | " + 
@@ -204,7 +191,6 @@ def create_bulk_users(driver, user_data_list, secondary_email):
                  ))
              )
              
-             # STAGE 1: Wait for "Blue Checks" (User Created) - Class: E9QP5b
              expected_count = len(user_data_list)
              print(f"Stage 1: Waiting for {expected_count} BLUE checkmarks (class 'E9QP5b') to confirm creation...")
              
@@ -217,11 +203,9 @@ def create_bulk_users(driver, user_data_list, secondary_email):
              except Exception:
                  print(f"⚠️ Stage 1 Message: Not all blue checks appeared (Found {len(driver.find_elements(By.CSS_SELECTOR, 'div.Y6ROV.E9QP5b'))}). Proceeding to send email anyway...")
              
-             # Click "Send login instructions"
              safe_click(driver, send_btn)
              print("Clicked 'Kirim petunjuk login'.")
              
-             # STAGE 2: Wait for "Green Checks" (Email Sent) - Class: L5gqXc
              print(f"Stage 2: Waiting for {expected_count} GREEN checkmarks (class 'L5gqXc') to confirm emails sent...")
              try:
                  WebDriverWait(driver, 60).until(
@@ -234,17 +218,22 @@ def create_bulk_users(driver, user_data_list, secondary_email):
         except Exception:
              print("Did not find 'Kirim petunjuk login' button (optional/skipped).")
 
-        # 5. Handle Final Confirmation (Done / Selesai)
         print("Waiting for final result...")
         WebDriverWait(driver, 30).until(
             lambda d: "ditambahkan" in d.page_source or "added" in d.page_source
         )
         print("✅ Bulk Users created successfully!")
         
-        # Save to log
+        domain = "gmail.com"
+        if ADMIN_EMAIL and "@" in ADMIN_EMAIL:
+            domain = ADMIN_EMAIL.split("@")[1]
+            
+        default_password = os.getenv("DEFAULT_PASSWORD", "Sadewa123")
+
         with open(r"c:\hotspot\autologin\created_users_log.txt", "a") as log:
             for user in user_data_list:
-                log.write(f"{user['first']}|{user['last']}|{secondary_email}|BATCH\n")
+                user_email = f"{user['first']}@{domain}"
+                log.write(f"{user['first']}|{user['last']}|{user_email}|{default_password}\n")
 
         print("Looking for 'Selesai' / 'Done' button...")
         finish_btn_xpath = (
@@ -281,23 +270,83 @@ def human_type(element, text):
 def run_batch_creation(driver):
     """Prepares list of users and runs bulk creation."""
     
-    # 1. Get/Create Temp Email
     temp_email, _ = create_temp_mail_account()
     if not temp_email:
+        print("Fallback to default recovery email.")
         temp_email = "fallback_recovery@kavera.biz.id"
     
-    # 2. Generate User List
-    NUM_USERS = 4 # Lets try 4 to force adding a new row (usually default is 3)
-    user_list = []
+    print("\n" + "="*40)
+    print(" USER GENERATION CONFIGURATION")
+    print("="*40)
     
-    for _ in range(NUM_USERS):
-        f_name = f"User{random.randint(100, 999)}"
-        l_name = f"Auto{random.randint(1000, 9999)}"
-        user_list.append({'first': f_name, 'last': l_name})
-    
-    create_bulk_users(driver, user_list, temp_email)
+    try:
+        base_name = input("Enter Base Name (Leave empty to use 'User' or random): ").strip()
+        
+        print("\nSelect Mode:")
+        print("[1] Sequential (e.g. Test1, Test2, Test3...)")
+        print("[2] Random Suffix (e.g. Test849, Test102...)")
+        mode_input = input("Choice (1/2, default 2): ").strip()
+        
+        user_list = []
+        
+        if mode_input == "1":
+            if not base_name:
+                base_name = "User"
+                
+            start_str = input("Start Number (default 1): ").strip()
+            start_num = int(start_str) if start_str.isdigit() else 1
+            
+            count_str = input("How many users (default 4): ").strip()
+            count = int(count_str) if count_str.isdigit() else 4
+            
+            common_last_names = [
+                "Santoso", "Wijaya", "Putri", "Pratama", "Saputra", 
+                "Hidayat", "Nugroho", "Wibowo", "Kusuma", "Lestari",
+                "Wahyuni", "Setiawan", "Kurniawan", "Sari", "Indah",
+                "Megawati", "Sukarno", "Hatta", "Pangestu", "Wardhani",
+                "Siregar", "Simanjuntak", "Pasaribu", "Nasution", "Lubis"
+            ]
+            
+            for i in range(count):
+                current_num = start_num + i
+                f_name = f"{base_name}{current_num}"
+                l_name = random.choice(common_last_names)
+                user_list.append({'first': f_name, 'last': l_name})
+                
+        else:
+            count_str = input("How many users (default 4): ").strip()
+            count = int(count_str) if count_str.isdigit() else 4
+            
+            common_last_names = [
+                "Santoso", "Wijaya", "Putri", "Pratama", "Saputra", 
+                "Hidayat", "Nugroho", "Wibowo", "Kusuma", "Lestari",
+                "Wahyuni", "Setiawan", "Kurniawan", "Sari", "Indah",
+                "Megawati", "Sukarno", "Hatta", "Pangestu", "Wardhani",
+                "Siregar", "Simanjuntak", "Pasaribu", "Nasution", "Lubis"
+            ]
+            
+            for _ in range(count):
+                if base_name:
+                    f_name = f"{base_name}{random.randint(100, 999)}"
+                else:
+                    f_name = ''.join(random.choices(string.ascii_letters, k=6))
+                
+                l_name = random.choice(common_last_names)
+                user_list.append({'first': f_name, 'last': l_name})
 
-# Chrome Binary Path (Same as in google_workspace_activator.py)
+        print(f"\nGenerated {len(user_list)} users to create:")
+        for u in user_list:
+            print(f" - {u['first']} {u['last']}")
+        
+        print("\nProceeding to creation in 3 seconds...")
+        time.sleep(3)
+        
+        create_bulk_users(driver, user_list, temp_email)
+
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+        return
+
 CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
 
 def find_chrome_executable():
@@ -317,7 +366,6 @@ def login_admin_console():
     options = uc.ChromeOptions()
     options.add_argument("--window-size=1280,720")
     
-    # Session Persistence
     profile_path = os.path.join(os.getcwd(), "chrome_profile")
     options.add_argument(f"--user-data-dir={profile_path}")
     print(f"Using Chrome Profile at: {profile_path}")
@@ -328,7 +376,6 @@ def login_admin_console():
 
     try:
         if chrome_path:
-             # version_main=141 is used in the other script, usually good to match if using that binary
              driver = uc.Chrome(options=options, browser_executable_path=chrome_path, version_main=141)
         else:
              driver = uc.Chrome(options=options)
@@ -341,21 +388,17 @@ def login_admin_console():
         print(f"Navigating to {ADMIN_CONSOLE_URL}...")
         driver.get(ADMIN_CONSOLE_URL)
         
-        # Check for existing session
         print("Checking for existing session...")
         try:
-             # 1. Check URL
              WebDriverWait(driver, 5).until(
                 lambda d: "admin.google.com" in d.current_url and "ServiceLogin" not in d.current_url
             )
              
-             # 2. CRITICAL: Check if Password field is visible. If yes, we are NOT logged in.
              password_fields = driver.find_elements(By.CSS_SELECTOR, "input[name='Passwd'], input[name='password'], input[type='password']")
              if len(password_fields) > 0 and password_fields[0].is_displayed():
                  raise Exception("Password field detected! Session requires re-authentication.")
                  
              print("✅ Existing session found! Skipping credentials entry.")
-             # START BATCH or MASS DELETE
              print("\n" + "="*40)
              print(" MODE SELECTION")
              print("="*40)
@@ -369,36 +412,33 @@ def login_admin_console():
              else:
                  run_batch_creation(driver)
                  
-             return # Exit login function
+             return 
         except Exception as e_session:
              print(f"No active session found ({e_session}). Proceeding to login...")
 
-        # Check if we are already at the Password stage (Session expired / Verify it's you)
         print("Checking if Password field is already visible...")
         skip_email = False
         try:
              password_input_check = WebDriverWait(driver, 5).until(
-                 EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password'], input[name='password'], input[name='Passwd']"))
+                 EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password'], input[name='password'], input[name='Passwd']"))
              )
              print("✅ Password field found immediately! Skipping Email entry.")
              skip_email = True
         except:
              print("Password field not found. Proceeding to Email entry...")
 
-        # 1. Email / Identifier Stage
         if not skip_email:
             print("Waiting for Email input...")
             try:
                 email_input = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email'], input[name='identifier']"))
+                    EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email'], input[name='identifier']"))
                 )
                 human_type(email_input, ADMIN_EMAIL)
                 random_delay()
                 
-                # Click Next
                 next_button = driver.find_element(By.ID, "identifierNext")
                 if not next_button:
-                     next_button = driver.find_element(By.CSS_SELECTOR, "button[type='button']") # Fallback
+                     next_button = driver.find_element(By.CSS_SELECTOR, "button[type='button']") 
                 
                 next_button.click()
                 print("Email entered. Clicked Next.")
@@ -407,22 +447,20 @@ def login_admin_console():
 
         random_delay(2, 4)
 
-        # 2. Password Stage
         print("Waiting for Password input...")
         try:
             password_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password'], input[name='password'], input[name='Passwd']"))
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password'], input[name='password'], input[name='Passwd']"))
             )
             
             human_type(password_input, ADMIN_PASSWORD)
             random_delay()
             
-            # Click Next (Password)
             password_next_button = driver.find_element(By.ID, "passwordNext")
             if not password_next_button:
-                 password_next_button = driver.find_element(By.CSS_SELECTOR, "div#passwordNext button") # Selector often used
+                 password_next_button = driver.find_element(By.CSS_SELECTOR, "div#passwordNext button") 
             
-            if not password_next_button: # Ultimate fallback
+            if not password_next_button: 
                  buttons = driver.find_elements(By.CSS_SELECTOR, "button")
                  for btn in buttons:
                      if "next" in btn.text.lower() or "berikutnya" in btn.text.lower():
@@ -438,18 +476,15 @@ def login_admin_console():
         except Exception as e:
              print(f"Password stage failed: {e}")
 
-        # 3. Verify Login & Navigate to Users
         print("Waiting for Admin Console to load (checking URL)...")
         try:
-            # Wait for URL to contain 'admin.google.com' which is language-independent
             WebDriverWait(driver, 60).until(
-                lambda d: "admin.google.com" in d.current_url
+                lambda d: d.current_url.startswith("https://admin.google.com/") 
+                          and "ServiceLogin" not in d.current_url
+                          and "signin" not in d.current_url
             )
             print(f"SUCCESS: Logged in! Current URL: {driver.current_url}")
             
-            print(f"SUCCESS: Logged in! Current URL: {driver.current_url}")
-            
-            # Start User Creation Flow (Batch) or Mass Delete
             print("\n" + "="*40)
             print(" MODE SELECTION")
             print("="*40)
@@ -467,8 +502,8 @@ def login_admin_console():
              print(f"Login verification failed (Timeout or Error): {e}")
              print(f"Current Title: {driver.title}")
              print(f"Current URL: {driver.current_url}")
+             print("Please check if manual intervention is possible.")
 
-        # Keep browser open for user to see/interact
         print("\nScript finished. Press Enter to close browser...")
         input()
 
@@ -478,7 +513,7 @@ def login_admin_console():
         try:
             driver.quit()
         except OSError:
-            pass # Ignore standard WinError 6
+            pass 
         except Exception:
             pass
 
@@ -491,14 +526,12 @@ def run_mass_delete(driver):
     """
     print("\n--- Starting Mass Delete Sequence ---")
     
-    # 1. Navigate to Users List
     if "/ac/users" not in driver.current_url:
         print("Navigating to Users list...")
         driver.get("https://admin.google.com/ac/users")
         random_delay(3, 5)
     
     try:
-        # 2. Select All
         print("Clicking 'Select All'...")
         select_all_btn = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris']"))
@@ -506,17 +539,9 @@ def run_mass_delete(driver):
         safe_click(driver, select_all_btn)
         random_delay(1, 2)
         
-        # 3. Uncheck Admin (admin@kavera.biz.id)
-        # Strategy: Find the EMAIL element, then find the CHECKBOX in the same row.
-        # User snippet: <div class="MHH3bd" title="admin@kavera.biz.id">
         print("Looking for Admin account to uncheck...")
         try:
             print("  - Looking for Admin Checkbox using DIRECT XPath...")
-            
-            # Direct XPath Strategy based on User Snippet
-            # Find TR that contains the email, then find the checkbox inside it
-            # User Snippet Email: <div class="MHH3bd" title="admin@kavera.biz.id">admin@kavera.biz.id</div>
-            # User Snippet Checkbox: <div ... role="checkbox" aria-label="Pilih baris" ...>
             
             admin_row_checkbox = WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.XPATH, "//tr[.//div[@title='admin'] or .//*[contains(text(), 'admin@kavera.biz.id')]]//div[@role='checkbox']"))
@@ -524,11 +549,9 @@ def run_mass_delete(driver):
             
             print(f"  - Found Checkbox directly: <{admin_row_checkbox.tag_name} aria-label='{admin_row_checkbox.get_attribute('aria-label')}'>")
 
-            # Scroll into view
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", admin_row_checkbox)
             time.sleep(0.5)
 
-            # Check status and uncheck if needed
             is_checked = admin_row_checkbox.get_attribute("aria-checked") == "true" or \
                          admin_row_checkbox.get_attribute("checked") == "true" or \
                          "true" in (admin_row_checkbox.get_attribute("class") or "") 
@@ -549,18 +572,15 @@ def run_mass_delete(driver):
         print("Waiting for UI to settle after uncheck (5 seconds)...")
         time.sleep(5) 
 
-        # 4 & 5. Iterate ALL "Opsi lainnya" buttons until we find the one with "Hapus pengguna"
         print("Iterating all 'Opsi lainnya' buttons to find the Delete option...")
         
         found_delete = False
         
-        # Get all buttons (re-fetch each iteration to avoid stale references)
         all_btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
         print(f"  - Found {len(all_btns)} 'Opsi lainnya' buttons.")
         
         for i in range(len(all_btns)):
             try:
-                # Re-fetch buttons each time to avoid stale element errors
                 btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
                 if i >= len(btns):
                     break
@@ -576,10 +596,7 @@ def run_mass_delete(driver):
                 driver.execute_script("arguments[0].click();", btn)
                 time.sleep(1.5)
                 
-                # Wait for menu to render, then check for "Hapus pengguna yang dipilih"
                 try:
-                    # Wait up to 3 seconds for the delete item to appear
-                    # jsname='mV7xqd' is the clickable container div (from user snippet)
                     hapus_el = WebDriverWait(driver, 3).until(
                         EC.visibility_of_element_located((By.XPATH,
                             "//*[@jsname='mV7xqd'] | "
@@ -587,7 +604,6 @@ def run_mass_delete(driver):
                         ))
                     )
                     print(f"  - ✅ Button {i+1} opened the correct menu! Clicking 'Hapus pengguna yang dipilih'...")
-                    # Click the jsname='mV7xqd' container (the actual clickable element)
                     driver.execute_script("arguments[0].click();", hapus_el)
                     found_delete = True
                     break
@@ -613,10 +629,8 @@ def run_mass_delete(driver):
             
         random_delay(2, 3)
         
-        # 6. Confirmation Dialog
         print("Waiting for Confirmation Dialog...")
         try:
-            # Wait for the confirmation checkbox: div.t5nRo.Id5V1 (from user snippet)
             confirm_checkbox = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "div.t5nRo.Id5V1"))
             )
@@ -626,7 +640,6 @@ def run_mass_delete(driver):
             
             random_delay(1, 2)
             
-            # Look for Final Delete Button (any button with 'Hapus' text)
             print("  - Looking for Final 'Hapus' button...")
             final_delete_btn = WebDriverWait(driver, 5).until(
                 EC.element_to_be_clickable((By.XPATH,
@@ -645,7 +658,6 @@ def run_mass_delete(driver):
             except: pass
             raise e_conf
         
-        # Wait for completion? User didn't specify, but usually good to wait a bit.
         print("Waiting for deletion to process...")
         random_delay(5, 8)
         print("Mass Delete Sequence Finished.")
