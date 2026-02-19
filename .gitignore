@@ -12,3 +12,5 @@ chrome_profile/
 
 # Logs
 created_users_log.txt
+
+.env
