@@ -1,9 +1,7 @@
 name: Google Workspace Activator
 
 on:
-  schedule:
-    - cron: '0 */6 * * *' # Runs every 6 hours
-  workflow_dispatch:      # Allows manual run from Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
