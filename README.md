@@ -37,21 +37,23 @@ Automates the acceptance of Google Workspace invitations sent to external email 
    ADMIN_EMAIL=admin@yourdomain.com
    ADMIN_PASSWORD=your_password_here
    ADMIN_CONSOLE_URL=https://admin.google.com/
-   DEFAULT_PASSWORD=Sadewa123  # Optional: Password for created gsuite accounts
+   WORKSPACE_DOMAIN=yourdomain.com       # Used as fallback for email generation and default input
+   DEFAULT_PASSWORD=Sadewa123            # Optional: Password for created gsuite accounts
    ```
 
 ## 📖 How to Use
 
 ### 1. Unified Management (`main.py`)
-Run the main menu to access all features:
+Run the interactive dashboard to access all features:
 ```bash
 python main.py
 ```
-From here you can select:
-1.  **Add User**: Logs in to Admin Console and starts user creation.
-2.  **Delete User**: Logs in to Admin Console and starts mass deletion.
-3.  **Activate Accounts**: Runs the improved activator bot.
-4.  **Reset Email Data**: Clears temp email and logs.
+This launches a modern CLI dashboard where you can:
+1.  **Add New Users**: Automatically generates and creates bulk users (supports sequential or random generation with international names).
+2.  **Mass Delete**: Cleans up the workspace by deleting all users except the admin.
+3.  **Activation**: Starts the email polling bot to auto-accept incoming Workspace invitations.
+4.  **Reset Data**: Purges local cache and temporary email credentials.
+-   **Toggle Headless**: Switch between visible browser or background (headless) mode.
 
 ### 2. Manual Execution (Legacy)
 You can still run scripts individually if needed:

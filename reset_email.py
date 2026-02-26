@@ -1,4 +1,20 @@
 import os
+import sys
+
+# Force UTF-8 for Windows Terminal
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm
+from rich.table import Table
+from rich import box
+
+console = Console()
 
 FILES_TO_RESET = [
     r"c:\hotspot\autologin\email_credentials.txt",
@@ -8,23 +24,32 @@ FILES_TO_RESET = [
 ]
 
 def reset_data():
-    print("WARNING: This will delete your current email session AND all processing history.")
-    confirmation = input("Are you sure you want to completely RESET the bot data? (y/n): ").strip().lower()
+    console.print(Panel("[bold red]⚠️  WARNING: DATA PURGE[/bold red]\n[white]This will permanently delete your session credentials and processing history.[/white]", border_style="red"))
     
-    if confirmation == 'y':
+    if Confirm.ask("[bold yellow]Are you sure you want to completely RESET all local data?[/bold yellow]", default=False):
+        table = Table(box=box.SIMPLE, show_header=False)
+        table.add_column("Status", width=4)
+        table.add_column("File")
+
         for file_path in FILES_TO_RESET:
+            fname = os.path.basename(file_path)
             if os.path.exists(file_path):
                 try:
                     os.remove(file_path)
-                    print(f"✅ Deleted: {os.path.basename(file_path)}")
+                    table.add_row("[green]✔[/green]", f"[dim]{fname}[/dim]")
                 except Exception as e:
-                    print(f"❌ Failed to delete {os.path.basename(file_path)}: {e}")
+                    table.add_row("[red]✘[/red]", f"[bold red]{fname} ({e})[/bold red]")
             else:
-                print(f"ℹ️ Not found (skipped): {os.path.basename(file_path)}")
+                table.add_row("[blue]ℹ[/blue]", f"[dim]{fname} (skipped)[/dim]")
         
-        print("\nAll data reset. Run 'python google_workspace_activator.py' to start fresh.")
+        console.print(table)
+        console.print("\n[bold green]✅ SYSTEM RESET COMPLETE[/bold green]")
+        console.print("[dim]Run the activation bot to start a fresh session.[/dim]")
     else:
-        print("Reset cancelled.")
+        console.print("[dim]Reset operation aborted.[/dim]")
 
 if __name__ == "__main__":
-    reset_data()
+    try:
+        reset_data()
+    except KeyboardInterrupt:
+        console.print("\n[red]Operation cancelled.[/red]")

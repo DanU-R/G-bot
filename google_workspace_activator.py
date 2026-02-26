@@ -1,15 +1,34 @@
-import requests
+import os
+import sys
 import time
 import random
+
+# Force UTF-8 for Windows Terminal
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
+import requests
 import string
 import json
 import re
-import os
 from bs4 import BeautifulSoup
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+from rich import box
+from dotenv import load_dotenv
+
+console = Console()
+load_dotenv()
+WORKSPACE_DOMAIN = os.getenv("WORKSPACE_DOMAIN", "")
 
 import argparse
 import sys
@@ -101,37 +120,25 @@ def human_type(element, text):
         time.sleep(random.uniform(0.05, 0.2))
 
 def activate_google_workspace(activation_link, email):
-    """Automates the browser steps to activate the account using Selenium (Headless)."""
-    print(f"Opening browser to: {activation_link}")
-    
     chrome_path = find_chrome_executable()
-    print(f"Using Chrome at: {chrome_path}")
-
-    options = uc.ChromeOptions()
-    options.binary_location = chrome_path
     
-    options.add_argument("--headless=new") 
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    with console.status(f"[bold blue]Initializing Activator Browser...", spinner="dots"):
+        options = uc.ChromeOptions()
+        
+        options.add_argument("--headless=new") 
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-    try:
-        if chrome_path:
-            print(f"Initializing Chrome (Local) with version match 141...")
-            driver = uc.Chrome(
-                options=options, 
-                browser_executable_path=chrome_path,
-                version_main=141
-            )
-        else:
-            print(f"Initializing Chrome (Cloud/Auto) with latest version...")
-            driver = uc.Chrome(
-                options=options
-            )
-    except Exception as e:
-        print(f"Failed to initialize Chrome: {e}")
-        return
+        try:
+            if chrome_path:
+                driver = uc.Chrome(options=options, browser_executable_path=chrome_path, version_main=141)
+            else:
+                driver = uc.Chrome(options=options)
+        except Exception as e:
+            console.print(f"[bold red]Failed to initialize Chrome: {e}[/bold red]")
+            return
     
     try:
         if not driver: return
@@ -309,8 +316,7 @@ def activate_google_workspace(activation_link, email):
         try:
             if 'driver' in locals() and driver:
                 driver.quit()
-        except OSError:
-            pass 
+                driver = None
         except Exception:
             pass
         
@@ -365,7 +371,9 @@ def extract_workspace_email(html_content, text_content):
         r"Selamat datang di Akun Google baru Anda untuk\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"Username:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"Nama pengguna:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
-        r"Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"
+        r"Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+        r"account\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s+is ready",
+        r"akun\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s+sudah siap"
     ]
     
     for content in [html_content, text_content]:
@@ -394,6 +402,27 @@ def save_processed_id(msg_id):
             f.write(f"{msg_id}\n")
     except:
         pass
+
+def load_user_log_mapping():
+    """Reads created_users_log.txt and returns secondary_email -> workspace_email mapping."""
+    mapping = {}
+    log_file = r"c:\hotspot\autologin\created_users_log.txt"
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r") as f:
+                for line in f:
+                    parts = line.strip().split('|')
+                    if len(parts) > 3:
+                        first, last, workspace, secondary = parts[0], parts[1], parts[2], parts[3]
+                        if secondary:
+                            if workspace == "Unknown" and WORKSPACE_DOMAIN:
+                                workspace = f"{first.lower()}@{WORKSPACE_DOMAIN}"
+                            
+                            if workspace != "Unknown":
+                                mapping[secondary.lower()] = workspace
+        except:
+            pass
+    return mapping
 
 def main():
     time.sleep(1)
@@ -472,98 +501,107 @@ def main():
         traceback.print_exc()
         return
 
-    try:
-        should_reset = args.reset
-        if not should_reset and not any(arg.startswith('--') for arg in sys.argv):
-             try:
-                 reset_choice = input("Reset processed history? (y/n): ").strip().lower()
-                 if reset_choice == 'y':
-                     should_reset = True
-             except:
-                 pass
-                 
-        if should_reset:
-            print("History reset. Will process ALL matching emails found.")
-            processed_ids = set()
-            if os.path.exists(r"c:\hotspot\autologin\processed_ids.txt"):
-                 try:
-                     os.rename(r"c:\hotspot\autologin\processed_ids.txt", r"c:\hotspot\autologin\processed_ids.bak")
-                     print("Backed up old history to processed_ids.bak")
-                 except:
-                     pass
-        
-        session_activations = 0
-    
-        print("DEBUG: Entering main loop...")
-        while True:
+    should_reset = args.reset
+    if not should_reset and not any(arg.startswith('--') for arg in sys.argv):
+        try:
+            reset_choice = input("Reset processed history? (y/n): ").strip().lower()
+            if reset_choice == 'y':
+                should_reset = True
+        except:
+            pass
+             
+    if should_reset:
+        console.print("[bold yellow]History reset enabled. Will process ALL matching emails.[/bold yellow]")
+        processed_ids = set()
+        if os.path.exists(r"c:\hotspot\autologin\processed_ids.txt"):
             try:
-                if session_activations >= activation_limit:
-                    print(f"\nReached limit of {activation_limit} activations. Stopping script.")
-                    break
+                os.rename(r"c:\hotspot\autologin\processed_ids.txt", r"c:\hotspot\autologin\processed_ids.bak")
+                console.print("[dim]Backed up old history to processed_ids.bak[/dim]")
+            except:
+                pass
+    
+    try:
+        session_activations = 0
+        activated_accounts = []
+        user_mapping = load_user_log_mapping()
+        if user_mapping:
+            console.print(f"[dim]Loaded {len(user_mapping)} user mappings from log.[/dim]")
 
-                messages = get_messages(token)
-                messages.sort(key=lambda x: x['createdAt'], reverse=True)
-                
-                new_activation_found = False
-                
-                for msg in messages:
-                    if msg['id'] in processed_ids:
-                        continue
+        with console.status("[bold cyan]Monitoring Inbox for Activation Emails...", spinner="dots") as status:
+            while True:
+                try:
+                    if session_activations >= activation_limit:
+                        console.print(f"\n[bold green]✅ Reached limit of {activation_limit} activations. Stopping.[/bold green]")
+                        break
+
+                    messages = get_messages(token)
+                    messages.sort(key=lambda x: x['createdAt'], reverse=True)
                     
-                    if "google.com" in msg['from']['address'] or "Google" in msg['from']['name']:
-                         print(f"Processing new email from: {msg['from']['address']} (ID: {msg['id']})")
-                         full_msg = get_message_content(token, msg['id'])
-                         
-                         html = full_msg.get('html') or ""
-                         if isinstance(html, list): html = "".join(html)
-                         
-                         text = full_msg.get('text') or ""
-                         if isinstance(text, list): text = "".join(text)
-                         
-                         link = extract_verification_link(html) or extract_verification_link(text)
-                         workspace_email = extract_workspace_email(html, text)
-                         
-                         if link:
-                             print(f"Found activation link: {link}")
-                             target_email = workspace_email if workspace_email else f"Unknown_Workspace_Email"
-                             
-                             activate_google_workspace(link, target_email)
-                             
-                             processed_ids.add(msg['id'])
-                             save_processed_id(msg['id'])
-                             new_activation_found = True
-                             
-                             session_activations += 1
-                             
-                             success_msg = f"✅ Activated: `{target_email}`"
-                             print(success_msg)
-                             
-                             print(f"Session Activations: {session_activations}/{activation_limit if activation_limit != float('inf') else 'Unlimited'}")
-                             
-                             if session_activations >= activation_limit:
-                                 print("Limit reached in inner loop.")
-                                 print(f"🛑 **Batch Completed**: {session_activations} accounts activated.")
-                                 break
-                                 
-                             print("Waiting for NEXT email...")
-                         else:
-                             print("Google email found but no activation link. Marking processed.")
-                             processed_ids.add(msg['id'])
-                             save_processed_id(msg['id'])
-                
-                if not new_activation_found and session_activations < activation_limit:
-                     print(f"\rWaiting for new emails... (Checked at {time.strftime('%H:%M:%S')})", end="", flush=True)
-                     time.sleep(10)
-                 
-            except KeyboardInterrupt:
-                print("\nStopping script...")
-                break
-            except Exception as e:
-                print(f"Error polling messages: {e}")
-                time.sleep(10)
+                    for msg in messages:
+                        if msg['id'] in processed_ids:
+                            continue
+                        
+                        if "google.com" in msg['from']['address'] or "Google" in msg['from']['name']:
+                            status.update(f"[bold magenta]Processing email from {msg['from']['address']}...")
+                            full_msg = get_message_content(token, msg['id'])
+                            
+                            html = full_msg.get('html') or ""
+                            if isinstance(html, list): html = "".join(html)
+                            
+                            text = full_msg.get('text') or ""
+                            if isinstance(text, list): text = "".join(text)
+                            
+                            link = extract_verification_link(html) or extract_verification_link(text)
+                            workspace_email = extract_workspace_email(html, text)
+                            
+                            # Fallback to mapping if extraction failed
+                            if not workspace_email and token:
+                                # We need to know who this email was sent to.
+                                # Mail.tm message object has a 'to' field which is a list of recipients.
+                                recipients = msg.get('to', [])
+                                for rec in recipients:
+                                    recipient_addr = rec.get('address', '').lower()
+                                    if recipient_addr in user_mapping:
+                                        workspace_email = user_mapping[recipient_addr]
+                                        status.update(f"[bold green]Fallback match found: {workspace_email}[/bold green]")
+                                        break
+
+                            if link:
+                                target_email = workspace_email if workspace_email else f"Unknown_Workspace_Email"
+                                
+                                activate_google_workspace(link, target_email)
+                                
+                                processed_ids.add(msg['id'])
+                                save_processed_id(msg['id'])
+                                session_activations += 1
+                                activated_accounts.append(target_email)
+                                
+                                console.print(f"[bold green]✅ Activated:[/bold green] [cyan]{target_email}[/cyan]")
+                                
+                                if session_activations >= activation_limit:
+                                    break
+                            else:
+                                processed_ids.add(msg['id'])
+                                save_processed_id(msg['id'])
+
+                    status.update(f"[bold cyan]Waiting for emails... (Last check: {time.strftime('%H:%M:%S')})")
+                    time.sleep(10)
+                     
+                except KeyboardInterrupt:
+                    break
+                except Exception as e:
+                    time.sleep(10)
+
+        if activated_accounts:
+            table = Table(title="Activation Summary", box=box.ROUNDED)
+            table.add_column("#", justify="right", style="dim")
+            table.add_column("Account Email", style="green")
+            for i, email in enumerate(activated_accounts):
+                table.add_row(str(i+1), email)
+            console.print(table)
 
     except Exception as e_main:
-        print(f"Critical Error in Main Loop: {e_main}")
+        console.print(f"[bold red]Critical Error in Main Loop: {e_main}[/bold red]")
         time.sleep(5)
 
 if __name__ == "__main__":
