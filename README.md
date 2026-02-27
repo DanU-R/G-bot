@@ -109,7 +109,3 @@ The bot creates a `chrome_profile` folder to store your active Google session.
 | **Mass Delete Errors** | Ensure the browser language is set to English or Indonesian. |
 
 ---
-
-<div align="center">
-  <p><i>Built with ❤️ for Google Workspace Admins. Secure, fast, and fully automated.</i></p>
-</div>
