@@ -1,126 +1,115 @@
-# Google Workspace Admin Bot
+<div align="center">
+  <h1>🚀 Google Workspace AutoBot</h1>
+  <p><i>A powerful, automated, and elegant toolkit for Google Workspace Administrators</i></p>
+  
+  ![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
+  ![Selenium](https://img.shields.io/badge/Selenium-Automated-green.svg)
+  ![Rich](https://img.shields.io/badge/Rich-Terminal_UI-purple.svg)
+</div>
 
-A powerful Python toolkit for automating Google Workspace admin tasks and user management. This project helps you bulk create users, mass delete them, and automatically accept workspace invitations.
+---
 
-## 📌 Overview
+## ✨ Features
 
-This project consists of two main scripts:
+**Google Workspace AutoBot** is designed to save administrators hours of tedious clicking by automating bulk user management and email invitation handling directly in the Google Admin Console.
 
-### 1. `admin_login.py` (Admin Console Bot)
-Automates tasks directly in the Google Admin Console (admin.google.com).
-- **Session Persistence**: Saves your login session so you don't need to re-enter credentials every time.
-- **Mode 1: Bulk User Creation**: Creates multiple users in a single batch.
-- **Mode 2: Mass Delete**: Automatically selects all users (except admin) and deletes them via bulk actions.
+### 👥 1. Admin Console Bot (`admin_login.py`)
+Interact directly with `admin.google.com` seamlessly.
+- **🛡️ Session Persistence**: Saves your login session (bypasses repetitive log-ins).
+- **⚡ Bulk User Creation**: Generate and deploy dozens of users in seconds (supports sequential naming or realistic Indonesian/International name generation).
+- **🗑️ Mass Delete**: One-click cleanup. Automatically selects, safely unchecks the active Admin, and bulk-deletes all users.
 
-### 2. `google_workspace_activator.py` (Invitation Activator)
-Automates the acceptance of Google Workspace invitations sent to external email addresses.
-- **Temp Email Integration**: Uses Mail.tm API to generate and manage a temporary email address.
-- **Auto-Activation**: Detects invitation emails, clicks the link, and sets up the account password.
-- **Smart Logic**: Handles different invitation formats and prevents duplicate activations.
+### 📨 2. Invitation Activator (`google_workspace_activator.py`)
+A background polling bot that catches Google Workspace invites and activates them automatically.
+- **📧 Temp Email Integration**: Uses the Mail.tm API for disposable incoming emails.
+- **🤖 Auto-Acceptance**: Instantly detects invites, extracts verification links, and sets up the account password on autopilot.
+- **⚙️ Smart Sync Logic**: 100% accurate queueing system prevents duplicate activations by syncing directly with the creation logs.
 
-## 🛠 Prerequisites
+---
 
-- **Python 3.9+** installed.
-- **Google Chrome** installed.
-- **Internet Connection** (stable).
+## 🛠️ Prerequisites
 
-## 🚀 Installation
+Ensure your system is ready before launching the bot:
+- **Python 3.9** or higher
+- **Google Chrome** (Standard desktop installation)
+- **Stable Internet Connection**
 
-1. **Clone/Download** this repository.
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Configure Environment**:
-   Create a `.env` file in the project folder:
-   ```env
-   ADMIN_EMAIL=admin@yourdomain.com
-   ADMIN_PASSWORD=your_password_here
-   ADMIN_CONSOLE_URL=https://admin.google.com/
-   WORKSPACE_DOMAIN=yourdomain.com       # Used as fallback for email generation and default input
-   DEFAULT_PASSWORD=Sadewa123            # Optional: Password for created gsuite accounts
-   ```
+---
 
-## 📖 How to Use
+## 🚀 Quick Start
 
-### 1. Unified Management (`main.py`)
-Run the interactive dashboard to access all features:
+### 1. Installation
+Clone the repository and install the required dependencies:
+```bash
+git clone https://github.com/DanU-R/google-activator-bot.git
+cd google-activator-bot
+pip install -r requirements.txt
+```
+
+### 2. Configuration (`.env`)
+Create a `.env` file in the root directory to store your credentials securely:
+```env
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD=your_super_secret_password
+ADMIN_CONSOLE_URL=https://admin.google.com/
+
+# Fallback Settings
+WORKSPACE_DOMAIN=yourdomain.com       
+DEFAULT_PASSWORD=Sadewa123            
+```
+
+---
+
+## 💻 Usage: The Unified Dashboard
+
+Launch the gorgeous `rich`-powered CLI dashboard:
 ```bash
 python main.py
 ```
-This launches a modern CLI dashboard powered by `rich` where you can:
-1.  **Add New Users**: Automatically generates and creates bulk users (supports sequential or random generation with Indonesian/International names).
-2.  **Mass Delete**: Cleans up the workspace by deleting all users except the admin. Fully automated interaction with the Google Admin UI.
-3.  **Activation**: Starts the email polling bot to auto-accept incoming Workspace invitations.
-4.  **Reset Data**: Purges local cache and temporary email credentials.
--   **Toggle Headless**: Switch between visible browser or background (headless) mode.
 
-### 2. Manual Execution (Legacy)
-You can still run scripts individually if needed:
-- **Admin Bot**: `python admin_login.py`
-- **[1] Create Bulk Users**:  
-  Useful for populating the workspace with test users.
-  - **Base Name**: Enter a prefix (e.g., "Student"). Leave empty for defaults.
-  - **Mode Selection**:
-    - `1` **Sequential**: Creates `Student1`, `Student2`, etc.
-    - `2` **Random**: Creates `Student849`, `Student102`, etc. (or purely random if no base name).
-  - **Count**: Specify how many users to create.
-- **[2] Mass Delete Users**:  
-  **Warning**: This deletes all users *except* the admin account defined in `.env`.
-  - It sequentially selects all users in the table.
-  - Automatically unchecks your active admin account.
-  - Clicks "More Options" -> "Delete selected users".
-  - Confirms the final data transfer and deletion dialog.
+### Dashboard Menu:
+1. **➕ Add New Users**: Create batches of users rapidly.
+2. **🔥 Mass Delete**: Wipe all non-admin users from the workspace safely.
+3. **✅ Activate Accounts**: Start the listener to auto-accept and verify incoming invites.
+4. **🧹 Reset Data**: Purge cache and temporary emails.
+> **💡 Pro Tip:** Toggle **Headless Mode** directly from the dashboard to hide the browser and run tasks silently in the background!
 
-### 3. Activating Accounts (`google_workspace_activator.py`)
-Run the activator bot:
-```bash
-python google_workspace_activator.py
+---
+
+## 📁 Project Structure
+
+```text
+📦 google-activator-bot
+ ┣ 📜 main.py                       # The unified CLI Dashboard
+ ┣ 📜 admin_login.py                # Admin Console automation scripts
+ ┣ 📜 google_workspace_activator.py # Email polling & auto-activation
+ ┣ 📜 reset_email.py                # Cache wiping utility
+ ┣ 📜 .env                          # Configuration (DO NOT SHARE)
+ ┣ 📜 requirements.txt              # Dependencies
+ ┗ 📂 chrome_profile/               # Saved Chrome session data
 ```
-- On the first run, it generates a new email address (saved in `email_credentials.txt`).
-- **Copy this email** and invite it from your Google Admin Console.
-- The bot will poll for emails and auto-activate the account when the invitation arrives.
 
-**Options**:
-- `--limit N`: Stop after N successful activations.
-- `--reset`: Ignore history and re-process all emails.
-- `--headless`: Run without visible browser (default).
+---
 
-## � File Structure
+## 🍪 Session Management (Avoiding CAPTCHAs)
 
-- **Core Scripts**:
-  - `admin_login.py`: Main Admin Console automation script.
-  - `google_workspace_activator.py`: Account activation automation script.
-  - `reset_email.py`: Utility to wipe data and start fresh.
+The bot creates a `chrome_profile` folder to store your active Google session. 
+- **The Magic**: You only log in once.
+- **Troubleshooting**: Stuck in a login loop, need to change admin accounts, or facing strict CAPTCHAs? Simply **delete the `chrome_profile` folder** to force a clean, fresh login on the next run.
 
-- **Data Files**:
-  - `.env`: Your admin credentials (keep secret!).
-  - `email_credentials.txt`: Generated temp email login.
-  - `completed_accounts.txt`: Log of successfully activated accounts.
-  - `created_users_log.txt`: Log of users created via bulk creation (Format: `First|Last|Email|Password`).
-  - `processed_ids.txt`: History of processed email IDs to prevent duplicates.
+---
 
-  - `chrome_profile/`: Folder storing your browser session.
+## ❓ FAQ & Troubleshooting
 
-## 🍪 Managing the Chrome Profile
-
-The script creates a folder named `chrome_profile` to **save your login session**.
-- **Benefit**: You don't need to sign in every time you run the script.
-- **Troubleshooting**: If you need to **switch accounts**, get stuck in a **login loop**, or face **CAPTCHA issues**:
-  1. Stop the script (`Ctrl + C`).
-  2. **Delete the `chrome_profile` folder**.
-  3. Run the script again to force a fresh login.
-
-## ❓ Troubleshooting
-
-| Issue | Solution |
+| Issue | Quick Fix |
 | :--- | :--- |
-| **Browser doesn't open** | Run `pip install --upgrade undetected-chromedriver` setup. |
-| **"Chrome Not Found"** | Check if Chrome is installed in the standard location. |
-| **Script stops/crashes** | Press `Ctrl+C` to cancel safely. Check error logs. |
-| **Login Loop/Captcha** | Delete the `chrome_profile` folder and try again to clear session cache. |
-| **Mass Delete Fails** | Ensure language is English or Indonesian (script supports both). |
+| **"Chrome Not Found"** | Verify Chrome is installed in `%LOCALAPPDATA%` or `Program Files`. |
+| **Browser doesn't open** | Run `pip install --upgrade undetected-chromedriver`. |
+| **Script freezes/crashes** | Press `Ctrl+C` to abort safely. Check the terminal for logs. |
+| **Mass Delete Errors** | Ensure the browser language is set to English or Indonesian. |
 
-## 🔐 Security Note
-- Credentials in `.env` and `email_credentials.txt` are stored locally in plain text. Do not share these files.
-- This tool is for educational and authorized administrative use only.
+---
+
+<div align="center">
+  <p><i>Built with ❤️ for Google Workspace Admins. Secure, fast, and fully automated.</i></p>
+</div>
