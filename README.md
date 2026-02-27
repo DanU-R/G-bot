@@ -48,9 +48,9 @@ Run the interactive dashboard to access all features:
 ```bash
 python main.py
 ```
-This launches a modern CLI dashboard where you can:
-1.  **Add New Users**: Automatically generates and creates bulk users (supports sequential or random generation with international names).
-2.  **Mass Delete**: Cleans up the workspace by deleting all users except the admin.
+This launches a modern CLI dashboard powered by `rich` where you can:
+1.  **Add New Users**: Automatically generates and creates bulk users (supports sequential or random generation with Indonesian/International names).
+2.  **Mass Delete**: Cleans up the workspace by deleting all users except the admin. Fully automated interaction with the Google Admin UI.
 3.  **Activation**: Starts the email polling bot to auto-accept incoming Workspace invitations.
 4.  **Reset Data**: Purges local cache and temporary email credentials.
 -   **Toggle Headless**: Switch between visible browser or background (headless) mode.
@@ -67,11 +67,10 @@ You can still run scripts individually if needed:
   - **Count**: Specify how many users to create.
 - **[2] Mass Delete Users**:  
   **Warning**: This deletes all users *except* the admin account defined in `.env`.
-  > **Note**: Fitur ini belum berjalan dengan sempurna (This feature is not fully stable yet). Use with caution.
-  - It selects all users.
-  - Unchecks the admin account.
+  - It sequentially selects all users in the table.
+  - Automatically unchecks your active admin account.
   - Clicks "More Options" -> "Delete selected users".
-  - Confirms the deletion dialog.
+  - Confirms the final data transfer and deletion dialog.
 
 ### 3. Activating Accounts (`google_workspace_activator.py`)
 Run the activator bot:

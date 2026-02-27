@@ -215,90 +215,11 @@ def activate_google_workspace(activation_link, email):
                 print(f"Could not click submit: {e}")
         
         random_delay(3, 5) 
+        # Only log dim debug text, no more messy UI scraping needed
         print(f"Page Title after submit: {driver.title}")
         
         confirmed_email = email 
-        if "Unknown" in confirmed_email: confirmed_email = None 
-        
-        found_in_ui = False
-        
-        if not found_in_ui:
-            try:
-                 email_element = WebDriverWait(driver, 5).until(
-                    EC.visibility_of_element_located((By.CSS_SELECTOR, "div.eYSAde"))
-                 )
-                 if email_element and "@" in email_element.text:
-                     confirmed_email = email_element.text.strip()
-                     print(f"Confirmed Account Email from UI (div.eYSAde): {confirmed_email}")
-                     found_in_ui = True
-            except:
-                 pass
-        
-        if not found_in_ui:
-            try:
-                print("Checking iframe 'account' for email...")
-                driver.switch_to.frame("account")
-                body_text = driver.find_element(By.TAG_NAME, "body").text
-                match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", body_text)
-                if match:
-                    confirmed_email = match.group(1)
-                    print(f"Confirmed Account Email from UI (iframe): {confirmed_email}")
-                    found_in_ui = True
-            except Exception as e:
-                 print(f"Iframe check failed: {e}")
-                 driver.switch_to.default_content()
-
-        if not found_in_ui:
-            try:
-                print("Checking 'Dikelola oleh' in dialog...")
-                dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
-                for dialog in dialogs:
-                    links = dialog.find_elements(By.TAG_NAME, "a")
-                    for link in links:
-                        if "Dikelola oleh" in link.text or "Managed by" in link.text:
-                            found_id = link.get_attribute("id")
-                            print(f"Found 'Dikelola oleh' link ID: {found_id}")
-                            
-                            aria_label_ids = link.get_attribute("aria-labelledby")
-                            if aria_label_ids:
-                                print(f"Found aria-labelledby: {aria_label_ids}")
-                                ids = aria_label_ids.split()
-                                for aid in ids:
-                                    if aid != found_id: 
-                                        try:
-                                            related_elem = driver.find_element(By.ID, aid)
-                                            print(f"DEBUG: Found object with ID '{aid}'. Text Content: '{related_elem.text}'")
-                                            
-                                            content_match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", related_elem.text)
-                                            if content_match:
-                                                confirmed_email = content_match.group(1)
-                                                print(f"Confirmed Account Email from Object (Strategy 3 - Aria): {confirmed_email}")
-                                                found_in_ui = True
-                                        except Exception as e_inner:
-                                            print(f"DEBUG: Could not read object '{aid}': {e_inner}")
-                            
-                            if found_in_ui: break
-                            
-                    if found_in_ui: break
-            except Exception as e:
-                print(f"Strategy 3 failed: {e}")
-
-        if not found_in_ui:
-            try:
-                print("Strategy 4: Scanning entire dialog text...")
-                dialogs = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
-                for dialog in dialogs:
-                    print(f"DEBUG: Dialog Text: {dialog.text[:100]}...") 
-                    match = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", dialog.text)
-                    if match:
-                         confirmed_email = match.group(1)
-                         print(f"Confirmed Account Email from Dialog Text (Strategy 4): {confirmed_email}")
-                         found_in_ui = True
-                         break
-            except:
-                pass
-
-        if not confirmed_email:
+        if not confirmed_email or "Unknown" in confirmed_email:
             confirmed_email = "Unknown_Email_Check_Manually"
 
         print("Process completed.")
@@ -373,7 +294,10 @@ def extract_workspace_email(html_content, text_content):
         r"Nama pengguna:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"Email:\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         r"account\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s+is ready",
-        r"akun\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s+sudah siap"
+        r"akun\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s+sudah siap",
+        r"Anda adalah:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+        r"Anda(?: adalah)?\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+        r"untuk\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})"
     ]
     
     for content in [html_content, text_content]:
@@ -382,6 +306,16 @@ def extract_workspace_email(html_content, text_content):
             match = re.search(pattern, content)
             if match:
                 return match.group(1)
+                
+    # Fallback to general domain regex
+    domain_to_search = WORKSPACE_DOMAIN.lstrip('@').lower() if WORKSPACE_DOMAIN else None
+    if domain_to_search:
+        for content in [html_content, text_content]:
+            if not content: continue
+            domain_pattern = r"([a-zA-Z0-9._%+-]+@" + re.escape(domain_to_search) + r")"
+            all_emails = re.findall(domain_pattern, content.lower())
+            if all_emails:
+                return all_emails[0]
     
     print("DEBUG: Could not extract email. Dumping content snippet:")
     print(text_content[:200] if text_content else "No Text Content")
@@ -404,7 +338,7 @@ def save_processed_id(msg_id):
         pass
 
 def load_user_log_mapping():
-    """Reads created_users_log.txt and returns secondary_email -> workspace_email mapping."""
+    """Reads created_users_log.txt and returns secondary_email -> [workspace_email1, workspace_email2] mapping."""
     mapping = {}
     log_file = r"c:\hotspot\autologin\created_users_log.txt"
     if os.path.exists(log_file):
@@ -416,10 +350,16 @@ def load_user_log_mapping():
                         first, last, workspace, secondary = parts[0], parts[1], parts[2], parts[3]
                         if secondary:
                             if workspace == "Unknown" and WORKSPACE_DOMAIN:
-                                workspace = f"{first.lower()}@{WORKSPACE_DOMAIN}"
+                                safe_domain = WORKSPACE_DOMAIN.lstrip('@')
+                                workspace = f"{first.lower()}@{safe_domain}"
                             
                             if workspace != "Unknown":
-                                mapping[secondary.lower()] = workspace
+                                sl = secondary.lower()
+                                if sl not in mapping:
+                                    mapping[sl] = []
+                                # Avoid exact duplicates in the mapping array
+                                if workspace not in mapping[sl]:
+                                    mapping[sl].append(workspace)
         except:
             pass
     return mapping
@@ -552,19 +492,23 @@ def main():
                             if isinstance(text, list): text = "".join(text)
                             
                             link = extract_verification_link(html) or extract_verification_link(text)
-                            workspace_email = extract_workspace_email(html, text)
+                            # 1. ALWAYS TRY THE MAPPING FIRST (100% accurate from admin_login.py)
+                            workspace_email = None
                             
-                            # Fallback to mapping if extraction failed
-                            if not workspace_email and token:
-                                # We need to know who this email was sent to.
-                                # Mail.tm message object has a 'to' field which is a list of recipients.
-                                recipients = msg.get('to', [])
-                                for rec in recipients:
-                                    recipient_addr = rec.get('address', '').lower()
-                                    if recipient_addr in user_mapping:
-                                        workspace_email = user_mapping[recipient_addr]
-                                        status.update(f"[bold green]Fallback match found: {workspace_email}[/bold green]")
-                                        break
+                            # We need to know who this email was sent to.
+                            recipients = msg.get('to', [])
+                            for rec in recipients:
+                                recipient_addr = rec.get('address', '').lower()
+                                if recipient_addr in user_mapping and len(user_mapping[recipient_addr]) > 0:
+                                    # Pop the first matching workspace email from the list so the next one gets a different email
+                                    workspace_email = user_mapping[recipient_addr].pop(0)
+                                    status.update(f"[bold green]Exact match found from creation log: {workspace_email}[/bold green]")
+                                    break
+                            
+                            # 2. IF MAPPING FAILS, FALLBACK TO REGEX EXTRACTION
+                            if not workspace_email:
+                                status.update(f"[cyan]Not found in log, falling back to email content extraction...[/cyan]")
+                                workspace_email = extract_workspace_email(html, text)
 
                             if link:
                                 target_email = workspace_email if workspace_email else f"Unknown_Workspace_Email"
@@ -592,13 +536,13 @@ def main():
                 except Exception as e:
                     time.sleep(10)
 
-        if activated_accounts:
-            table = Table(title="Activation Summary", box=box.ROUNDED)
-            table.add_column("#", justify="right", style="dim")
-            table.add_column("Account Email", style="green")
-            for i, email in enumerate(activated_accounts):
-                table.add_row(str(i+1), email)
-            console.print(table)
+        # if activated_accounts:
+        #     table = Table(title="Activation Summary", box=box.ROUNDED)
+        #     table.add_column("#", justify="right", style="dim")
+        #     table.add_column("Account Email", style="green")
+        #     for i, email in enumerate(activated_accounts):
+        #         table.add_row(str(i+1), email)
+        #     console.print(table)
 
     except Exception as e_main:
         console.print(f"[bold red]Critical Error in Main Loop: {e_main}[/bold red]")

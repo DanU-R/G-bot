@@ -273,7 +273,8 @@ def create_bulk_users(driver, user_data_list, secondary_email, domain=""):
             with open(log_file, "a") as f:
                 for user in user_data_list:
                     # Construct expected email if domain provided
-                    workspace_email = f"{user['first'].lower()}@{domain}" if domain else "Unknown"
+                    safe_domain = domain.lstrip('@') if domain else ""
+                    workspace_email = f"{user['first'].lower()}@{safe_domain}" if safe_domain else "Unknown"
                     f.write(f"{user['first']}|{user['last']}|{workspace_email}|{secondary_email}|BATCH\n")
         except Exception as e_log:
              print(f"Warning: Could not log to file: {e_log}")
@@ -314,8 +315,17 @@ def run_batch_creation(driver):
         domain_name = input(domain_prompt).strip()
         if not domain_name and WORKSPACE_DOMAIN:
             domain_name = WORKSPACE_DOMAIN
+        domain_name = domain_name.lstrip('@') # Prevent double @
         
         user_list = []
+        
+        common_first_names = [
+            "Budi", "Andi", "Joko", "Siti", "Ani", "Dwi", "Tri", "Eko",
+            "Arief", "Ahmad", "Rina", "Nina", "Dimas", "Rizky", "Putra",
+            "Nur", "Sri", "Wahyu", "Agus", "Iwan", "Hendra", "Beni",
+            "Gilang", "Aditya", "Fajar", "Ilham", "Indra", "Surya",
+            "Yudi", "Roni", "Doni", "Reza", "Rio", "Kevin", "Bagus"
+        ]
         
         common_last_names = [
             "Santoso", "Wijaya", "Putri", "Pratama", "Saputra", 
@@ -354,7 +364,8 @@ def run_batch_creation(driver):
                 if base_name:
                     f_name = f"{base_name}{random.randint(100, 999)}"
                 else:
-                    f_name = ''.join(random.choices(string.ascii_letters, k=6))
+                    # Random human name + short random number to ensure uniqueness
+                    f_name = f"{random.choice(common_first_names)}{random.randint(10, 99)}"
                 
                 l_name = random.choice(common_last_names)
                 user_list.append({'first': f_name, 'last': l_name})
@@ -583,153 +594,182 @@ def run_mass_delete(driver):
     2. Uncheck Admin
     3. Delete
     """
-    print("\n--- Starting Mass Delete Sequence ---")
+    console.print(Panel("[bold red]--- Starting Mass Delete Sequence ---[/bold red]", box=box.SIMPLE))
     
     if "/ac/users" not in driver.current_url:
-        print("Navigating to Users list...")
-        driver.get("https://admin.google.com/ac/users")
-        random_delay(3, 5)
+        with console.status("[cyan]Navigating to Users list...", spinner="dots"):
+            driver.get("https://admin.google.com/ac/users")
+            random_delay(3, 5)
     
-    try:
-        print("Clicking 'Select All'...")
-        select_all_btn = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris']"))
-        )
-        safe_click(driver, select_all_btn)
-        random_delay(1, 2)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console
+    ) as progress:
+        task_id = progress.add_task("[cyan]Initializing mass delete...", total=None)
         
-        print("Looking for Admin account to uncheck...")
         try:
-            print("  - Looking for Admin Checkbox using DIRECT XPath...")
-            
-            admin_row_checkbox = WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.XPATH, "//tr[.//div[@title='admin'] or .//*[contains(text(), 'admin@kavera.biz.id')]]//div[@role='checkbox']"))
+            progress.update(task_id, description="[cyan]Clicking 'Select All'...")
+            select_all_btn = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris']"))
             )
+            safe_click(driver, select_all_btn)
+            random_delay(1, 2)
+            progress.update(task_id, description="[bold green]✅ All users selected")
             
-            print(f"  - Found Checkbox directly: <{admin_row_checkbox.tag_name} aria-label='{admin_row_checkbox.get_attribute('aria-label')}'>")
-
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", admin_row_checkbox)
-            time.sleep(0.5)
-
-            is_checked = admin_row_checkbox.get_attribute("aria-checked") == "true" or \
-                         admin_row_checkbox.get_attribute("checked") == "true" or \
-                         "true" in (admin_row_checkbox.get_attribute("class") or "") 
-            
-            if is_checked:
-                print(f"  - Unchecking Admin row...")
-                safe_click(driver, admin_row_checkbox)
-            else:
-                 print(f"  - Admin row was ALREADY unchecked (State: aria-checked={admin_row_checkbox.get_attribute('aria-checked')})")
-                
-        except Exception as e_admin:
-            print(f"⚠️ Failed to uncheck Admin row. Error details: {e_admin}")
-            print("Please MANUALLY uncheck admin@kavera.biz.id now!")
-            try: print("\a") 
-            except: pass
-            input("Press Enter after verifying Admin is unchecked...")
-
-        print("Waiting for UI to settle after uncheck (5 seconds)...")
-        time.sleep(5) 
-
-        print("Iterating all 'Opsi lainnya' buttons to find the Delete option...")
-        
-        found_delete = False
-        
-        all_btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
-        print(f"  - Found {len(all_btns)} 'Opsi lainnya' buttons.")
-        
-        for i in range(len(all_btns)):
+            progress.update(task_id, description="[cyan]Looking for Admin account to uncheck...")
             try:
-                btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
-                if i >= len(btns):
-                    break
-                btn = btns[i]
+                admin_row_checkbox = WebDriverWait(driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, f"//tr[.//div[@title='admin'] or .//*[contains(text(), '{ADMIN_EMAIL}')]]//div[@role='checkbox']"))
+                )
                 
-                if not btn.is_displayed():
-                    print(f"  - Button {i+1}: hidden, skip.")
-                    continue
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", admin_row_checkbox)
+                time.sleep(0.5)
+
+                is_checked = admin_row_checkbox.get_attribute("aria-checked") == "true" or \
+                             admin_row_checkbox.get_attribute("checked") == "true" or \
+                             "true" in (admin_row_checkbox.get_attribute("class") or "") 
                 
-                print(f"  - Clicking button {i+1} (jsname={btn.get_attribute('jsname')})...")
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                time.sleep(0.3)
-                driver.execute_script("arguments[0].click();", btn)
-                time.sleep(1.5)
-                
+                if is_checked:
+                    progress.update(task_id, description="[cyan]Unchecking Admin row...")
+                    safe_click(driver, admin_row_checkbox)
+                    
+            except Exception as e_admin:
+                progress.stop()
+                console.print(f"\n[bold yellow]⚠️ Failed to uncheck Admin row automatically.[/bold yellow]")
+                console.print(f"[bold red]Please MANUALLY uncheck {ADMIN_EMAIL} now![/bold red]")
+                try: print("\a") 
+                except: pass
+                console.input("[dim]Press Enter after verifying Admin is unchecked...[/dim]")
+                progress.start()
+
+            progress.update(task_id, description="[cyan]Waiting for UI to settle...")
+            time.sleep(5) 
+
+            progress.update(task_id, description="[magenta]Iterating menus to find Delete option...")
+            found_delete = False
+            all_btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
+            
+            for i in range(len(all_btns)):
                 try:
-                    hapus_el = WebDriverWait(driver, 3).until(
-                        EC.visibility_of_element_located((By.XPATH,
+                    btns = driver.find_elements(By.XPATH, "//*[@aria-label='Opsi lainnya'][@aria-haspopup='true']")
+                    if i >= len(btns):
+                        break
+                    btn = btns[i]
+                    
+                    if not btn.is_displayed():
+                        continue
+                    
+                    progress.update(task_id, description=f"[magenta]Checking menu {i+1}/{len(all_btns)}...")
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                    time.sleep(0.3)
+                    driver.execute_script("arguments[0].click();", btn)
+                    time.sleep(1.5)
+                    
+                    try:
+                        time.sleep(1)
+                        hapus_els = driver.find_elements(By.XPATH, 
                             "//*[@jsname='mV7xqd'] | "
-                            "//*[contains(text(), 'Hapus pengguna yang dipilih')]"
-                        ))
-                    )
-                    print(f"  - ✅ Button {i+1} opened the correct menu! Clicking 'Hapus pengguna yang dipilih'...")
-                    driver.execute_script("arguments[0].click();", hapus_el)
-                    found_delete = True
-                    break
-                except:
-                    print(f"  - Button {i+1}: 'Hapus pengguna yang dipilih' not visible. Closing...")
+                            "//*[contains(text(), 'Hapus pengguna yang dipilih')] | "
+                            "//*[contains(text(), 'Delete selected users')]"
+                        )
+                        
+                        hapus_el = None
+                        for el in hapus_els:
+                            if el.is_displayed():
+                                hapus_el = el
+                                break
+                                
+                        if not hapus_el:
+                            raise Exception("Not visible")
+                            
+                        progress.update(task_id, description="[magenta]Clicking 'Hapus pengguna yang dipilih'...")
+                        
+                        try:
+                            hapus_el.click()
+                        except:
+                            try:
+                                from selenium.webdriver.common.action_chains import ActionChains
+                                ActionChains(driver).move_to_element(hapus_el).click().perform()
+                            except:
+                                driver.execute_script("arguments[0].click();", hapus_el)
+                                
+                        found_delete = True
+                        break
+                    except Exception as click_err:
+                        try:
+                            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                        except: pass
+                        time.sleep(0.5)
+                        
+                except Exception as e_btn:
                     try:
                         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
                     except: pass
                     time.sleep(0.5)
-                    
-            except Exception as e_btn:
-                print(f"  - Button {i+1} error: {e_btn}")
-                try:
-                    driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-                except: pass
-                time.sleep(0.5)
 
-        if not found_delete:
-            print("❌ Could not find Delete option in any menu. Dumping Page Source...")
-            with open("debug_page_source.html", "w", encoding="utf-8") as f:
-                f.write(driver.page_source)
-            raise Exception("Could not find 'Hapus pengguna yang dipilih' in any 'Opsi lainnya' menu.")
-            
-        random_delay(2, 3)
-        
-        print("Waiting for Confirmation Dialog...")
-        try:
-            confirm_checkbox = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "div.t5nRo.Id5V1"))
-            )
-            print("  - Confirmation Dialog appeared! Clicking checkbox...")
-            driver.execute_script("arguments[0].click();", confirm_checkbox)
-            print("  - Clicked Confirmation Checkbox.")
-            
-            random_delay(1, 2)
-            
-            print("  - Looking for Final 'Hapus' button...")
-            final_delete_btn = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH,
-                    "//*[@role='button'][.//*[contains(text(), 'Hapus')]] | "
-                    "//button[contains(., 'Hapus')]"
-                ))
-            )
-            driver.execute_script("arguments[0].click();", final_delete_btn)
-            print("✅ CLICKED FINAL DELETE BUTTON.")
-             
-        except Exception as e_conf:
-            print(f"❌ Failed during Confirmation Dialog: {e_conf}")
-            try:
-                with open("debug_confirm_dialog.html", "w", encoding="utf-8") as f:
+            if not found_delete:
+                progress.stop()
+                console.print(f"[bold red]❌ Could not find Delete option in any menu.[/bold red]")
+                with open("debug_page_source.html", "w", encoding="utf-8") as f:
                     f.write(driver.page_source)
-            except: pass
-            raise e_conf
-        
-        print("Waiting for deletion to process...")
-        random_delay(5, 8)
-        print("Mass Delete Sequence Finished.")
-        input("DEBUG: Press Enter to close browser...")
-        
-    except Exception as e:
-        print(f"❌ Mass Delete Failed: {e}")
-        import traceback
-        traceback.print_exc()
-        try:
-            input("DEBUG: Script crashed. Press Enter to close...")
-        except KeyboardInterrupt:
-            print("\nScript cancelled by user.")
+                raise Exception("Could not find 'Hapus pengguna yang dipilih' in any 'Opsi lainnya' menu.")
+                
+            progress.update(task_id, description="[bold green]✅ Initiated deletion")
+            random_delay(2, 3)
+            
+            progress.update(task_id, description="[yellow]Waiting for Data Transfer Dialog...")
+            try:
+                dont_transfer_radio = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, 
+                        "//label[contains(., 'Jangan transfer data')] | "
+                        "//div[@aria-label='Jangan transfer data']"
+                    ))
+                )
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", dont_transfer_radio)
+                time.sleep(0.5)
+                safe_click(driver, dont_transfer_radio)
+                progress.update(task_id, description="[yellow]Selected 'Jangan transfer data'")
+
+                random_delay(1, 2)
+                
+                progress.update(task_id, description="[yellow]Looking for Final 'Hapus Pengguna' button...")
+                final_delete_btn = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH,
+                        "//div[@role='button'][@aria-label='Hapus Pengguna'] | "
+                        "//div[@role='button'][.//span[text()='Hapus Pengguna']] | "
+                        "//span[text()='Hapus Pengguna']/ancestor::div[@role='button']"
+                    ))
+                )
+                driver.execute_script("arguments[0].click();", final_delete_btn)
+                progress.update(task_id, description="[bold green]✅ Final Delete Confirmed!")
+                 
+            except Exception as e_conf:
+                progress.stop()
+                console.print(f"[bold red]❌ Failed during Confirmation Dialog: {e_conf}[/bold red]")
+                try:
+                    with open("debug_confirm_dialog.html", "w", encoding="utf-8") as f:
+                        f.write(driver.page_source)
+                except: pass
+                raise e_conf
+            
+            progress.update(task_id, description="[bold cyan]Waiting for deletion to process...")
+            random_delay(5, 8)
+            progress.update(task_id, description="[bold green]✅ Deletion completed successfully!", completed=True)
+            time.sleep(1)
+            
+        except Exception as e:
+            progress.stop()
+            console.print(f"\n[bold red]❌ Mass Delete Failed: {e}[/bold red]")
+            import traceback
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            try:
+                console.input("[dim]Press Enter to close...[/dim]")
+            except KeyboardInterrupt:
+                console.print("\n[dim]Script cancelled by user.[/dim]")
+
+    console.print("\n[bold green]✨ MASS DELETE SEQUENCE FINISHED[/bold green]")
+
 
 if __name__ == "__main__":
     try:
