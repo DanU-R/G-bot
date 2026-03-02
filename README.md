@@ -79,7 +79,7 @@ python main.py
 ## 📁 Project Structure
 
 ```text
-📦 google-activator-bot
+📦 G-bot
  ┣ 📜 main.py                       # The unified CLI Dashboard
  ┣ 📜 admin_login.py                # Admin Console automation scripts
  ┣ 📜 google_workspace_activator.py # Email polling & auto-activation
