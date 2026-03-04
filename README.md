@@ -41,7 +41,7 @@ Ensure your system is ready before launching the bot:
 ### 1. Installation
 Clone the repository and install the required dependencies:
 ```bash
-git clone https://github.com/DanU-R/google-activator-bot.git
+git clone https://github.com/DanU-R/G-bot.git
 cd google-activator-bot
 pip install -r requirements.txt
 ```
