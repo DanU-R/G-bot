@@ -143,15 +143,88 @@ def activate_google_workspace(activation_link, email, headless=False):
         driver.quit()
 
 def main():
+    console.print(Panel("[bold blue]--- Starting Google Workspace Activator ---[/bold blue]", box=box.SIMPLE))
+    
     creds_file = "/app/email_credentials.txt" if os.path.exists("/app") else os.path.join(os.getcwd(), "email_credentials.txt")
-    if os.path.exists(creds_file):
-        with open(creds_file, "r") as f:
-            # Login and poll logic simplified as per original
-            pass
+    processed_id_file = "/app/processed_ids.txt" if os.path.exists("/app") else os.path.join(os.getcwd(), "processed_ids.txt")
+    
+    if args.reset and os.path.exists(processed_id_file):
+        os.remove(processed_id_file)
+        print("[SYSTEM] Processed history reset.")
 
-    # Polling loop... (Simplified for Docker compatibility)
-    print("Activator running...")
-    # Real logic here would involve get_messages and activate_google_workspace in a loop
+    if not os.path.exists(creds_file):
+        print("[ERROR] email_credentials.txt not found. Please run the Admin Bot first to create an account.")
+        return
+
+    email = ""
+    password = ""
+    with open(creds_file, "r") as f:
+        for line in f:
+            if line.startswith("Email:"): email = line.split("Email:")[1].strip()
+            if line.startswith("Password:"): password = line.split("Password:")[1].strip()
+
+    if not email or not password:
+        print("[ERROR] Could not parse credentials from file.")
+        return
+
+    print(f"[PROCESS] Obtained credentials for polling: {email}")
+    try:
+        token = get_token(email, password)
+    except Exception as e:
+        print(f"[ERROR] Failed to get mail.tm token: {e}")
+        return
+
+    processed_ids = set()
+    if os.path.exists(processed_id_file):
+        with open(processed_id_file, "r") as f:
+            processed_ids = set(line.strip() for line in f)
+
+    activation_count = 0
+    print("[SYSTEM] Entering polling loop (Ctrl+C to stop)...")
+    
+    try:
+        while True:
+            if args.limit > 0 and activation_count >= args.limit:
+                print(f"[SYSTEM] Limit of {args.limit} activations reached.")
+                break
+
+            try:
+                messages = get_messages(token)
+                for msg in messages:
+                    msg_id = msg['id']
+                    if msg_id in processed_ids:
+                        continue
+
+                    print(f"[NOTIFICATION] New message found: {msg['subject']}")
+                    content = get_message_content(token, msg_id)
+                    html = content.get('html', [])
+                    if isinstance(html, list): html = "".join(html)
+                    
+                    link = extract_verification_link(html)
+                    if link:
+                        print(f"[PROCESS] Activating Workspace via link...")
+                        activate_google_workspace(link, email, headless=args.headless)
+                        
+                        with open(processed_id_file, "a") as f:
+                            f.write(f"{msg_id}\n")
+                        processed_ids.add(msg_id)
+                        activation_count += 1
+                        
+                        if args.limit > 0 and activation_count >= args.limit:
+                            break
+                    else:
+                        # Mark as processed even if no link, to avoid re-checking non-google emails
+                        processed_ids.add(msg_id)
+                        with open(processed_id_file, "a") as f:
+                            f.write(f"{msg_id}\n")
+
+            except Exception as e:
+                print(f"[WARNING] Error in polling loop: {e}")
+            
+            time.sleep(10) # Poll every 10 seconds
+            
+    except KeyboardInterrupt:
+        print("\n[SYSTEM] Activator stopped by user.")
 
 if __name__ == "__main__":
     main()

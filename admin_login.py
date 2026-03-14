@@ -251,13 +251,57 @@ def login_admin_console(action=None, headless=False):
         driver.quit()
 
 def run_mass_delete(driver):
-    # Simplified mass delete logic derived from previous version
+    console.print(Panel("[bold red]--- Starting Mass Delete Process ---[/bold red]", box=box.SIMPLE))
     try:
+        print("[PROCESS] Navigating to Users list...")
         driver.get("https://admin.google.com/ac/users")
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris']"))).click()
-        # Additional steps omitted for brevity in this repair, focusing on structure
-        print("Mass delete triggered.")
-    except: pass
+        random_delay(3, 5)
+        
+        print("[PROCESS] Selecting all users...")
+        select_all_cb = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris'], div[aria-label='Select all rows'], .VfPpkd-muoYxb-sMbiTe"))
+        )
+        safe_click(driver, select_all_cb)
+        random_delay(1, 2)
+        
+        # Check if "Select all X users" link appears for large lists
+        try:
+            select_all_mega = driver.find_elements(By.XPATH, "//span[contains(text(), 'Pilih semua') and contains(text(), 'pengguna')] | //span[contains(text(), 'Select all') and contains(text(), 'users')]")
+            if select_all_mega:
+                print("[PROCESS] Selecting ALL users across all pages...")
+                safe_click(driver, select_all_mega[0])
+                random_delay(1, 2)
+        except: pass
+
+        print("[PROCESS] Clicking Delete button...")
+        # Delete button is often a trash icon or in a menu
+        delete_btn = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Hapus pengguna'] | //div[@aria-label='Delete user'] | //span[contains(text(), 'Hapus')]/ancestor::button | //span[contains(text(), 'Delete')]/ancestor::button"))
+        )
+        safe_click(driver, delete_btn)
+        random_delay(2, 3)
+        
+        print("[PROCESS] Confirming deletion in modal...")
+        # Check for the checkbox to confirm in the modal
+        try:
+            confirm_box = driver.find_elements(By.CSS_SELECTOR, "div[role='checkbox']")
+            for cb in confirm_box:
+                safe_click(driver, cb)
+        except: pass
+        
+        final_delete = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'HAPUS')]/ancestor::div[@role='button'] | //span[contains(text(), 'DELETE')]/ancestor::div[@role='button']"))
+        )
+        safe_click(driver, final_delete)
+        
+        print("[SUCCESS] Mass delete command submitted.")
+        WebDriverWait(driver, 60).until(lambda d: "dihapus" in d.page_source or "deleted" in d.page_source)
+        print("[SUCCESS] All users have been deleted.")
+        
+    except Exception as e:
+        print(f"[ERROR] Mass delete failed: {e}")
+    finally:
+        print("[SYSTEM] Exiting Mass Delete flow.")
 
 if __name__ == "__main__":
     action_to_run = args.action if args.action else ("create" if args.email else None)
