@@ -106,7 +106,7 @@ async def run_admin(request: Request, background_tasks: BackgroundTasks):
         return RedirectResponse(url='/login')
     
     success, msg = trigger_admin_bot(domain, background_tasks)
-    return RedirectResponse(url='/?msg=' + msg)
+    return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/activator")
 async def run_activator(request: Request, background_tasks: BackgroundTasks):
@@ -115,7 +115,7 @@ async def run_activator(request: Request, background_tasks: BackgroundTasks):
         return RedirectResponse(url='/login')
     
     success, msg = trigger_activator_bot(domain, background_tasks)
-    return RedirectResponse(url='/?msg=' + msg)
+    return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 if __name__ == "__main__":
     import uvicorn
