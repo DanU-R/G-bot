@@ -11,3 +11,4 @@ authlib
 cryptography
 python-multipart
 itsdangerous
+httpx
