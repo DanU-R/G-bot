@@ -227,14 +227,39 @@ def login_admin_console(action=None, headless=False):
                 print("ERROR: Reached Google Login page, but no password was provided. Please configure DEFAULT_PASSWORD environment variable.")
                 return
                 
-            # Login flow
-            email_input = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
+            print("[PROCESS] Identifying email field...")
+            email_input = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
             human_type(email_input, ADMIN_EMAIL)
-            driver.find_element(By.ID, "identifierNext").click()
-            password_input = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
-            human_type(password_input, ADMIN_PASSWORD)
-            driver.find_element(By.ID, "passwordNext").click()
-            WebDriverWait(driver, 60).until(lambda d: "admin.google.com" in d.current_url)
+            
+            print("[PROCESS] Clicking Next...")
+            next_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "identifierNext")))
+            safe_click(driver, next_btn)
+            
+            # Wait for either password field OR an error/security check
+            print("[PROCESS] Waiting for password field...")
+            try:
+                password_input = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='password']")))
+                human_type(password_input, ADMIN_PASSWORD)
+                
+                pass_next = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "passwordNext")))
+                safe_click(driver, pass_next)
+                
+                print("[PROCESS] Finalizing login...")
+                WebDriverWait(driver, 60).until(lambda d: "admin.google.com" in d.current_url)
+            except Exception as e:
+                # Diagnostics
+                print(f"[DIAGNOSTIC] Current URL: {driver.current_url}")
+                print(f"[DIAGNOSTIC] Page Title: {driver.title}")
+                body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
+                
+                if "verifikasi" in body_text or "verify" in body_text:
+                    print("[SECURITY] Google is asking for Identity Verification / 2FA. Headless mode cannot bypass this. Please login manually once in non-headless mode to establish a trusted session.")
+                elif "captcha" in body_text:
+                    print("[SECURITY] Google is showing a CAPTCHA. Automation blocked.")
+                elif "salah" in body_text or "not find" in body_text or "wrong" in body_text:
+                    print("[ERROR] Google rejected the email or password. Please check your credentials.")
+                
+                raise e # Re-raise to trigger the main exception handler with traceback
 
         handle_suspended_subscription(driver)
         if action == "delete": run_mass_delete(driver)
