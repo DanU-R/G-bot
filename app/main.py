@@ -29,7 +29,7 @@ oauth.register(
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
+async def dashboard(request: Request, msg: str = None):
     user = request.session.get('user')
     if not user:
         return RedirectResponse(url='/login')
@@ -38,7 +38,8 @@ async def dashboard(request: Request):
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "user": user, 
-        "domain": domain
+        "domain": domain,
+        "msg": msg
     })
 
 @app.get("/login", response_class=HTMLResponse)
