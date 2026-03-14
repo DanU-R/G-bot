@@ -311,14 +311,42 @@ def run_mass_delete(driver):
     try:
         print("[PROCESS] Navigating to Users list...")
         driver.get("https://admin.google.com/ac/users")
-        random_delay(3, 5)
         
-        print("[PROCESS] Selecting all users...")
-        select_all_cb = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "div[aria-label='Pilih semua baris'], div[aria-label='Select all rows'], .VfPpkd-muoYxb-sMbiTe"))
-        )
+        # Wait for the table to at least start loading
+        WebDriverWait(driver, 20).until(lambda d: d.find_elements(By.TAG_NAME, "table") or "pengguna" in d.page_source.lower() or "users" in d.page_source.lower())
+        random_delay(4, 6) # Give it extra time for JS to render the checkboxes
+        
+        print("[PROCESS] Scanning for selection checkbox...")
+        
+        # Try multiple selector strategies for "Select all"
+        selection_selectors = [
+            (By.CSS_SELECTOR, "div[aria-label='Pilih semua baris']"),
+            (By.CSS_SELECTOR, "div[aria-label='Select all rows']"),
+            (By.CSS_SELECTOR, "th div[role='checkbox']"),
+            (By.XPATH, "//th//div[@role='checkbox']"),
+            (By.XPATH, "//div[contains(@aria-label, 'Pilih semua')]"),
+            (By.CSS_SELECTOR, ".VfPpkd-muoYxb-sMbiTe")
+        ]
+        
+        select_all_cb = None
+        for by, selector in selection_selectors:
+            try:
+                elements = driver.find_elements(by, selector)
+                for el in elements:
+                    if el.is_displayed():
+                        select_all_cb = el
+                        break
+                if select_all_cb: break
+            except: continue
+            
+        if not select_all_cb:
+            print("[ERROR] Could not find 'Select All' checkbox. Page might be different or no users exist.")
+            # Diagnostic: print aria-labels of all clickable divs
+            return
+
+        print("[PROCESS] Clicking 'Select All'...")
         safe_click(driver, select_all_cb)
-        random_delay(1, 2)
+        random_delay(2, 3)
         
         # Check if "Select all X users" link appears for large lists
         try:
@@ -329,30 +357,72 @@ def run_mass_delete(driver):
                 random_delay(1, 2)
         except: pass
 
-        print("[PROCESS] Clicking Delete button...")
-        # Delete button is often a trash icon or in a menu
-        delete_btn = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Hapus pengguna'] | //div[@aria-label='Delete user'] | //span[contains(text(), 'Hapus')]/ancestor::button | //span[contains(text(), 'Delete')]/ancestor::button"))
-        )
+        print("[PROCESS] Searching for Delete button...")
+        # Delete buttons can be dynamic
+        delete_selectors = [
+            (By.XPATH, "//div[@aria-label='Hapus pengguna']"),
+            (By.XPATH, "//div[@aria-label='Delete user']"),
+            (By.XPATH, "//span[contains(text(), 'Hapus')]/ancestor::button"),
+            (By.XPATH, "//span[contains(text(), 'Delete')]/ancestor::button"),
+            (By.XPATH, "//div[contains(@class, 'VfPpkd-Bz112c-LgbsSe') and .//span[contains(text(), 'Hapus')]]")
+        ]
+        
+        delete_btn = None
+        for by, selector in delete_selectors:
+            try:
+                elements = driver.find_elements(by, selector)
+                for el in elements:
+                    if el.is_displayed() and el.is_enabled():
+                        delete_btn = el
+                        break
+                if delete_btn: break
+            except: continue
+
+        if not delete_btn:
+            print("[ERROR] Delete button not found or not active. Make sure users are selected.")
+            return
+            
+        print("[PROCESS] Clicking Delete...")
         safe_click(driver, delete_btn)
         random_delay(2, 3)
         
-        print("[PROCESS] Confirming deletion in modal...")
-        # Check for the checkbox to confirm in the modal
+        print("[PROCESS] Handling confirmation modal...")
         try:
-            confirm_box = driver.find_elements(By.CSS_SELECTOR, "div[role='checkbox']")
-            for cb in confirm_box:
-                safe_click(driver, cb)
+            # Look for confirmation checkboxes inside the modal (e.g., delete data confirmation)
+            modals = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+            if modals:
+                confirm_boxes = modals[0].find_elements(By.CSS_SELECTOR, "div[role='checkbox']")
+                for cb in confirm_boxes:
+                    if not cb.get_attribute("aria-checked") == "true":
+                        safe_click(driver, cb)
+                        random_delay(0.5, 1)
         except: pass
         
-        final_delete = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'HAPUS')]/ancestor::div[@role='button'] | //span[contains(text(), 'DELETE')]/ancestor::div[@role='button']"))
-        )
-        safe_click(driver, final_delete)
+        final_delete_selectors = [
+            (By.XPATH, "//span[contains(text(), 'HAPUS')]/ancestor::div[@role='button']"),
+            (By.XPATH, "//span[contains(text(), 'DELETE')]/ancestor::div[@role='button']"),
+            (By.XPATH, "//button[.//span[contains(text(), 'Hapus')]]"),
+            (By.XPATH, "//button[.//span[contains(text(), 'Delete')]]")
+        ]
         
-        print("[SUCCESS] Mass delete command submitted.")
-        WebDriverWait(driver, 60).until(lambda d: "dihapus" in d.page_source or "deleted" in d.page_source)
-        print("[SUCCESS] All users have been deleted.")
+        final_btn = None
+        for by, selector in final_delete_selectors:
+            try:
+                elements = driver.find_elements(by, selector)
+                for el in elements:
+                    if el.is_displayed():
+                        final_btn = el
+                        break
+                if final_btn: break
+            except: continue
+            
+        if final_btn:
+            safe_click(driver, final_btn)
+            print("[SUCCESS] Mass delete command submitted.")
+            WebDriverWait(driver, 60).until(lambda d: "dihapus" in d.page_source or "deleted" in d.page_source or "tidak ada" in d.page_source.lower())
+            print("[SUCCESS] Process completed.")
+        else:
+            print("[ERROR] Final confirmation button not found.")
         
     except Exception as e:
         print(f"[ERROR] Mass delete failed: {e}")
