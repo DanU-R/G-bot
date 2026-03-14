@@ -220,8 +220,18 @@ def login_admin_console(action=None, headless=False):
         driver = uc.Chrome(options=options)
 
     try:
+        print("[PROCESS] Checking current login session...")
         driver.get(ADMIN_CONSOLE_URL)
-        time.sleep(3)
+        time.sleep(5)
+        
+        # Check if already logged in (look for dashboard elements)
+        if "admin.google.com" in driver.current_url and "ServiceLogin" not in driver.current_url:
+            print("[SUCCESS] Active session found! Proceeding without login.")
+            handle_suspended_subscription(driver)
+            if action == "delete": run_mass_delete(driver)
+            elif action == "create": run_batch_creation(driver)
+            return
+
         if "signin" in driver.current_url or "ServiceLogin" in driver.current_url:
             if not ADMIN_PASSWORD:
                 print("ERROR: Reached Google Login page, but no password was provided. Please configure DEFAULT_PASSWORD environment variable.")
@@ -252,8 +262,25 @@ def login_admin_console(action=None, headless=False):
                 print(f"[DIAGNOSTIC] Page Title: {driver.title}")
                 body_text = driver.find_element(By.TAG_NAME, "body").text.lower()
                 
-                if "verifikasi" in body_text or "verify" in body_text:
-                    print("[SECURITY] Google is asking for Identity Verification / 2FA. Headless mode cannot bypass this. Please login manually once in non-headless mode to establish a trusted session.")
+                if "verifikasi" in body_text or "verify" in body_text or "challenge" in body_text:
+                    print("\n" + "="*60)
+                    print(" [ATTENTION] GOOGLE IDENTITY VERIFICATION REQUIRED ".center(60, "!"))
+                    print("="*60)
+                    print("Google is asking to verify your identity. This usually happens")
+                    print("on the first run from a new server (Railway).")
+                    print("\nACTION REQUIRED:")
+                    print("1. Check your Phone or Admin Email for a notification.")
+                    print("2. Tap 'Yes, it's me' or enter the code shown on your device.")
+                    print("3. The bot will wait for 60 seconds for you to complete this.")
+                    print("="*60 + "\n")
+                    
+                    # Wait longer for manual 2FA completion
+                    try:
+                        WebDriverWait(driver, 60).until(lambda d: "admin.google.com" in d.current_url and "ServiceLogin" not in d.current_url)
+                        print("[SUCCESS] Verification completed! Session is now saved.")
+                    except:
+                        print("[ERROR] Verification timed out.")
+                        raise e
                 elif "captcha" in body_text:
                     print("[SECURITY] Google is showing a CAPTCHA. Automation blocked.")
                 elif "salah" in body_text or "not find" in body_text or "wrong" in body_text:
