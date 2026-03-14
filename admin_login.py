@@ -244,11 +244,15 @@ def login_admin_console(action=None, headless=False):
             run_batch_creation(driver)
         
     except Exception as e:
-        print(f"Error: {e}")
+        import traceback
+        print(f"[ERROR] Selenium Exception: {str(e)}")
+        print(f"[TRACEBACK] {traceback.format_exc()}")
     finally:
         if not headless and not args.headless:
             input("Press Enter to close...")
-        driver.quit()
+        try:
+            driver.quit()
+        except: pass
 
 def run_mass_delete(driver):
     console.print(Panel("[bold red]--- Starting Mass Delete Process ---[/bold red]", box=box.SIMPLE))
