@@ -40,8 +40,16 @@ async def run_script_in_background(script_name: str, email: str = None, password
         cmd.extend(["--domain", domain])
     cmd.append("--headless")
     
-    if "admin_login" in script_name and "delete" in kwargs.get("action", ""):
-        cmd.extend(["--action", "delete"])
+    if "admin_login" in script_name:
+        if "delete" in kwargs.get("action", ""):
+            cmd.extend(["--action", "delete"])
+        else:
+            if kwargs.get("user_count"):
+                cmd.extend(["--user-count", str(kwargs.get("user_count"))])
+            if kwargs.get("name_prefix"):
+                cmd.extend(["--name-prefix", str(kwargs.get("name_prefix"))])
+            if kwargs.get("random_names"):
+                cmd.extend(["--random-names"])
     
     # Check if reset_email.py and force
     if "reset_email" in script_name:
@@ -80,7 +88,7 @@ async def run_script_in_background(script_name: str, email: str = None, password
     await process.wait()
     await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
-def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks):
+def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
     creds = get_admin_credentials(domain)
     if not creds:
         return False, "Credentials not found for this domain."
@@ -90,7 +98,10 @@ def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks):
         "admin_login.py", 
         creds["email"], 
         creds["password"], 
-        domain
+        domain,
+        user_count=user_count,
+        name_prefix=name_prefix,
+        random_names=random_names
     )
     return True, "Admin bot triggered in background."
 

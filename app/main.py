@@ -101,12 +101,24 @@ async def save_settings(request: Request, email: str = Form(...), password: str 
     })
 
 @app.post("/run/admin")
-async def run_admin(request: Request, background_tasks: BackgroundTasks):
+async def run_admin(
+    request: Request, 
+    background_tasks: BackgroundTasks,
+    user_count: int = Form(4),
+    name_prefix: str = Form("User"),
+    random_names: bool = Form(False)
+):
     domain = request.session.get('domain')
     if not domain:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_admin_bot(domain, background_tasks)
+    success, msg = trigger_admin_bot(
+        domain, 
+        background_tasks,
+        user_count=user_count,
+        name_prefix=name_prefix,
+        random_names=random_names
+    )
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/activator")

@@ -35,6 +35,9 @@ parser.add_argument('--password', help='Admin Password')
 parser.add_argument('--domain', help='Workspace Domain')
 parser.add_argument('--headless', action='store_true', help='Run in headless mode')
 parser.add_argument('--action', choices=['create', 'delete'], help='Action to perform (create or delete)', default=None)
+parser.add_argument('--user-count', type=int, default=4, help='Number of users to create')
+parser.add_argument('--name-prefix', type=str, default='User', help='Prefix for the generated users first name')
+parser.add_argument('--random-names', action='store_true', help='Generate completely random names instead of using a prefix')
 args, unknown = parser.parse_known_args()
 
 ADMIN_EMAIL = args.email or os.getenv("ADMIN_EMAIL")
@@ -162,7 +165,17 @@ def run_batch_creation(driver):
     temp_email, _ = create_temp_mail_account()
     if not temp_email: temp_email = "fallback_recovery@kavera.biz.id"
     domain_name = WORKSPACE_DOMAIN or input("Enter Workspace Domain: ").strip().lstrip('@')
-    user_list = [{'first': f"User{random.randint(100,999)}", 'last': "Test"} for _ in range(4)]
+    
+    user_list = []
+    for _ in range(args.user_count):
+        if args.random_names:
+            first_name = ''.join(random.choices(string.ascii_letters, k=8)).capitalize()
+            last_name = ''.join(random.choices(string.ascii_letters, k=6)).capitalize()
+        else:
+            first_name = f"{args.name_prefix}{random.randint(100,999)}"
+            last_name = "Test"
+        user_list.append({'first': first_name, 'last': last_name})
+        
     create_bulk_users(driver, user_list, temp_email, domain=domain_name)
 
 CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
