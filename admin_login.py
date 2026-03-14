@@ -196,9 +196,12 @@ def handle_suspended_subscription(driver):
     except: pass
 
 def login_admin_console(action=None, headless=False):
-    if not ADMIN_EMAIL or not ADMIN_PASSWORD:
-        print("ERROR: Admin credentials missing.")
+    if not ADMIN_EMAIL:
+        print("ERROR: Admin email missing. Please provide --email.")
         return
+    
+    if not ADMIN_PASSWORD:
+        print("WARNING: Admin password missing. Assuming active persistent session exists.")
 
     options = uc.ChromeOptions()
     if headless or args.headless:
@@ -220,6 +223,10 @@ def login_admin_console(action=None, headless=False):
         driver.get(ADMIN_CONSOLE_URL)
         time.sleep(3)
         if "signin" in driver.current_url or "ServiceLogin" in driver.current_url:
+            if not ADMIN_PASSWORD:
+                print("ERROR: Reached Google Login page, but no password was provided. Please configure DEFAULT_PASSWORD environment variable.")
+                return
+                
             # Login flow
             email_input = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
             human_type(email_input, ADMIN_EMAIL)
