@@ -4,3 +4,10 @@ undetected-chromedriver
 setuptools
 python-dotenv
 rich
+fastapi
+uvicorn
+jinja2
+authlib
+cryptography
+python-multipart
+itsdangerous

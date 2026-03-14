@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block title %}Settings - Google AutoBot{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 2rem; max-width: 600px; margin: 0 auto;">
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+        <a href="/" style="color: var(--text);">&larr; Back</a>
+        <h2 style="margin: 0;">Admin Credentials</h2>
+    </div>
+
+    <p style="margin-bottom: 2rem; opacity: 0.8;">Setup the Google Admin credentials for domain <strong>{{ domain }}</strong>. These will be encrypted before saving.</p>
+
+    {% if message %}
+    <div class="alert alert-info">{{ message }}</div>
+    {% endif %}
+
+    <form action="/settings" method="post">
+        <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Admin Email</label>
+            <input type="email" name="email" value="{{ creds.email if creds else '' }}" placeholder="admin@{{ domain }}" required>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Admin Password</label>
+            <input type="password" name="password" placeholder="••••••••••••" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Save Credentials</button>
+    </form>
+</div>
+{% endblock %}
