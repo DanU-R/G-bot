@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -7,7 +7,7 @@ from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 
 from .encryption import save_admin_credentials, get_admin_credentials
-from .bot_manager import trigger_admin_bot, trigger_activator_bot, trigger_mass_delete, trigger_reset_data
+from .bot_manager import trigger_admin_bot, trigger_activator_bot, trigger_mass_delete, trigger_reset_data, active_connections
 
 load_dotenv()
 
@@ -135,6 +135,18 @@ async def run_reset(request: Request, background_tasks: BackgroundTasks):
     
     success, msg = trigger_reset_data(background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
+
+@app.websocket("/ws/logs")
+async def websocket_logs(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.append(websocket)
+    try:
+        while True:
+            # Keep connection open and wait for messages (e.g. ping)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        if websocket in active_connections:
+            active_connections.remove(websocket)
 
 if __name__ == "__main__":
     import uvicorn

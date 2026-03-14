@@ -54,5 +54,66 @@
             <a href="/settings" class="btn btn-outline" style="width: 100%; text-align: center; box-sizing: border-box;">Open Settings</a>
         </div>
     </div>
+
+    <div class="glass-panel" style="margin-top: 2rem; padding: 1.5rem; border-color: rgba(255, 255, 255, 0.2);">
+        <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+            Live Terminal 
+            <span id="ws-status" style="font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: rgba(52, 168, 83, 0.2); color: #34A853; font-family: monospace;">● Connected</span>
+        </h3>
+        <div id="terminal-output" style="
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 350px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            line-height: 1.4;
+        ">[SYSTEM] Waiting for bot execution...</div>
+    </div>
 </div>
+
+<script>
+    const terminal = document.getElementById('terminal-output');
+    const statusBadge = document.getElementById('ws-status');
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/logs`;
+    let ws;
+
+    function connect() {
+        statusBadge.textContent = '• Connecting...';
+        statusBadge.style.color = '#FBBC05';
+        statusBadge.style.background = 'rgba(251, 188, 5, 0.2)';
+
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+            statusBadge.textContent = '● Connected';
+            statusBadge.style.color = '#34A853';
+            statusBadge.style.background = 'rgba(52, 168, 83, 0.2)';
+        };
+        
+        ws.onmessage = function(event) {
+            if(terminal.textContent.includes('[SYSTEM] Waiting for bot execution...')) {
+                terminal.textContent = '';
+            }
+            const msgNode = document.createTextNode(event.data + '\n');
+            terminal.appendChild(msgNode);
+            terminal.scrollTop = terminal.scrollHeight;
+        };
+        
+        ws.onclose = function() {
+            statusBadge.textContent = '○ Disconnected';
+            statusBadge.style.color = '#EA4335';
+            statusBadge.style.background = 'rgba(234, 67, 53, 0.2)';
+            setTimeout(connect, 3000); // Reconnect automatically
+        };
+    }
+    
+    connect();
+</script>
 {% endblock %}

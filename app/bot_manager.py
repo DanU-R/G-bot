@@ -1,10 +1,28 @@
-import subprocess
+import asyncio
 import os
 import sys
-from fastapi import BackgroundTasks
+from typing import List
+from fastapi import BackgroundTasks, WebSocket
 from .encryption import get_admin_credentials
 
-def run_script_in_background(script_name: str, email: str = None, password: str = None, domain: str = None, **kwargs):
+active_connections: List[WebSocket] = []
+
+async def broadcast_log(message: str):
+    # Print to console as well
+    print(message)
+    # Broadcast to all connected websockets
+    disconnected = []
+    for connection in active_connections:
+        try:
+            await connection.send_text(message)
+        except Exception:
+            disconnected.append(connection)
+            
+    for conn in disconnected:
+        if conn in active_connections:
+            active_connections.remove(conn)
+
+async def run_script_in_background(script_name: str, email: str = None, password: str = None, domain: str = None, **kwargs):
     """Executes a selenium script in the background with credentials as arguments."""
     script_path = os.path.join(os.getcwd(), script_name)
     
@@ -29,24 +47,38 @@ def run_script_in_background(script_name: str, email: str = None, password: str 
     if "reset_email" in script_name:
         cmd = [python_exe, script_path, "--force"]
 
-    print(f"Triggering bot: {' '.join(cmd)}")
+    msg = f"Triggering bot: {' '.join(cmd)}"
+    await broadcast_log(f"\n[SYSTEM] {msg}")
     
-    # Menggunakan subprocess.Popen agar run di background tanpa memblokir FastAPI
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        universal_newlines=True
+    # Run async subprocess to capture logs in real-time
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT
     )
     
-    # Optional: Log output ke file
     log_file = os.path.join(os.getcwd(), f"{script_name}.log")
-    with open(log_file, "a") as f:
-        f.write(f"\n--- Bot Started for {domain} ---\n")
-        # Kita tidak memblokir di sini, tapi di Docker real-world 
-        # kita mungkin ingin menaruh output ke logger sistem
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(f"\n--- Bot Started: {script_name} ---\n")
+    
+    # Read output line by line
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+            
+        decoded_line = line.decode('utf-8', errors='replace').rstrip('\r\n')
+        
+        # Broadcast to web UI
+        if decoded_line:
+            await broadcast_log(decoded_line)
+            
+            # Save to file
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(decoded_line + "\n")
+                
+    await process.wait()
+    await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
 def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks):
     creds = get_admin_credentials(domain)
