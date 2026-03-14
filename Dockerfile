@@ -44,4 +44,4 @@ RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
 EXPOSE 8000
 
 # Use shell form to allow variable expansion for Railway PORT
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"
