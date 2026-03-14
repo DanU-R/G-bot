@@ -88,6 +88,8 @@ def extract_verification_link(html_content):
 
 def find_chrome_executable():
     if os.path.exists(CHROME_BINARY_PATH): return CHROME_BINARY_PATH
+    if os.path.exists("/usr/bin/google-chrome"): return "/usr/bin/google-chrome"
+    if os.path.exists("/usr/bin/google-chrome-stable"): return "/usr/bin/google-chrome-stable"
     return None
 
 def random_delay(min_s=0.5, max_s=1.5):

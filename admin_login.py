@@ -181,6 +181,8 @@ def run_batch_creation(driver):
 CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
 def find_chrome_executable():
     if os.path.exists(CHROME_BINARY_PATH): return CHROME_BINARY_PATH
+    if os.path.exists("/usr/bin/google-chrome"): return "/usr/bin/google-chrome"
+    if os.path.exists("/usr/bin/google-chrome-stable"): return "/usr/bin/google-chrome-stable"
     return None
 
 def handle_suspended_subscription(driver):
