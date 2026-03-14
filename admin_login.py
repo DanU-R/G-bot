@@ -301,7 +301,12 @@ def login_admin_console(action=None, headless=False):
         print(f"[TRACEBACK] {traceback.format_exc()}")
     finally:
         if not headless and not args.headless:
-            input("Press Enter to close...")
+            try:
+                # Only wait for input if NOT in headless mode (local debugging)
+                import sys
+                if sys.stdin.isatty():
+                    input("Press Enter to close...")
+            except: pass
         try:
             driver.quit()
         except: pass

@@ -43,12 +43,8 @@ async def dashboard(request: Request, msg: str = None):
         "msg": msg
     })
 
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-@app.get("/login/google")
-async def login_google(request: Request):
+@app.get("/login")
+async def login(request: Request):
     redirect_uri = request.url_for('auth_callback')
     return await oauth.google.authorize_redirect(request, str(redirect_uri))
 
@@ -64,7 +60,43 @@ async def auth_callback(request: Request):
             domain = email.split('@')[1]
             request.session['domain'] = domain
             
-    return RedirectResponse(url='/')
+    return RedirectResponse(url='/sync-session')
+
+@app.get("/sync-session", response_class=HTMLResponse)
+async def sync_page(request: Request):
+    user = request.session.get('user')
+    if not user:
+        return RedirectResponse(url='/login')
+    
+    domain = request.session.get('domain')
+    return templates.TemplateResponse("sync.html", {
+        "request": request,
+        "user": user,
+        "domain": domain
+    })
+
+@app.post("/sync-session")
+async def start_sync_session(request: Request, background_tasks: BackgroundTasks, password: Optional[str] = Form(None)):
+    user = request.session.get('user')
+    domain = request.session.get('domain')
+    if not user or not domain:
+        raise HTTPException(status_code=403, detail="Not logged in")
+    
+    email = user.get('email')
+    
+    # Save password for future "One Login" experience
+    if password:
+        save_admin_credentials(domain, email, password)
+    else:
+        # Check if we already have it
+        creds = get_admin_credentials(domain)
+        if not creds:
+             raise HTTPException(status_code=400, detail="Password required for first-time sync")
+        password = creds['password']
+
+    # Trigger Selenium sync in background
+    trigger_admin_bot(domain, email, background_tasks)
+    return {"status": "sync_started"}
 
 @app.get("/logout")
 async def logout(request: Request):
