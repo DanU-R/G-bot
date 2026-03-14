@@ -25,6 +25,22 @@
             </form>
         </div>
 
+        <div class="glass-panel" style="padding: 1.5rem; border-color: rgba(234, 67, 53, 0.3);">
+            <h3>Mass Delete</h3>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Clean up workspace by deleting users in bulk.</p>
+            <form action="/run/mass-delete" method="post" onsubmit="return confirm('Are you sure you want to MASS DELETE users for this domain?');">
+                <button type="submit" class="btn btn-primary" style="width: 100%; background: #EA4335;">Run Mass Delete</button>
+            </form>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.5rem; border-color: rgba(168, 85, 247, 0.3);">
+            <h3>Reset Data</h3>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Purge local session credentials and history files.</p>
+            <form action="/run/reset" method="post" onsubmit="return confirm('WARNING: This will delete ALL local cache and credentials. Continue?');">
+                <button type="submit" class="btn btn-primary" style="width: 100%; background: #a855f7;">Reset Local Data</button>
+            </form>
+        </div>
+
         <div class="glass-panel" style="padding: 1.5rem; border-color: rgba(251, 188, 5, 0.3);">
             <h3>Settings</h3>
             <p style="font-size: 0.9rem; opacity: 0.8;">Configure admin credentials for <strong>{{ domain }}</strong>.</p>

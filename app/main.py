@@ -7,7 +7,7 @@ from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 
 from .encryption import save_admin_credentials, get_admin_credentials
-from .bot_manager import trigger_admin_bot, trigger_activator_bot
+from .bot_manager import trigger_admin_bot, trigger_activator_bot, trigger_mass_delete, trigger_reset_data
 
 load_dotenv()
 
@@ -115,6 +115,24 @@ async def run_activator(request: Request, background_tasks: BackgroundTasks):
         return RedirectResponse(url='/login')
     
     success, msg = trigger_activator_bot(domain, background_tasks)
+    return RedirectResponse(url='/?msg=' + msg, status_code=303)
+
+@app.post("/run/mass-delete")
+async def run_mass_delete(request: Request, background_tasks: BackgroundTasks):
+    domain = request.session.get('domain')
+    if not domain:
+        return RedirectResponse(url='/login')
+    
+    success, msg = trigger_mass_delete(domain, background_tasks)
+    return RedirectResponse(url='/?msg=' + msg, status_code=303)
+
+@app.post("/run/reset")
+async def run_reset(request: Request, background_tasks: BackgroundTasks):
+    domain = request.session.get('domain')
+    if not domain:
+        return RedirectResponse(url='/login')
+    
+    success, msg = trigger_reset_data(background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 if __name__ == "__main__":

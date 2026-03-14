@@ -34,6 +34,7 @@ parser.add_argument('--email', help='Admin Email')
 parser.add_argument('--password', help='Admin Password')
 parser.add_argument('--domain', help='Workspace Domain')
 parser.add_argument('--headless', action='store_true', help='Run in headless mode')
+parser.add_argument('--action', choices=['create', 'delete'], help='Action to perform (create or delete)', default=None)
 args, unknown = parser.parse_known_args()
 
 ADMIN_EMAIL = args.email or os.getenv("ADMIN_EMAIL")
@@ -237,4 +238,5 @@ def run_mass_delete(driver):
     except: pass
 
 if __name__ == "__main__":
-    login_admin_console(action="create" if args.email else None, headless=args.headless)
+    action_to_run = args.action if args.action else ("create" if args.email else None)
+    login_admin_console(action=action_to_run, headless=args.headless)

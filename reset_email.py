@@ -16,17 +16,20 @@ from rich import box
 
 console = Console()
 
+def get_file_path(filename):
+    return f"/app/{filename}" if os.path.exists("/app") else os.path.join(os.getcwd(), filename)
+
 FILES_TO_RESET = [
-    r"c:\hotspot\autologin\email_credentials.txt",
-    r"c:\hotspot\autologin\processed_ids.txt",
-    r"c:\hotspot\autologin\processed_ids.bak",
-    r"c:\hotspot\autologin\completed_accounts.txt"
+    get_file_path("email_credentials.txt"),
+    get_file_path("processed_ids.txt"),
+    get_file_path("processed_ids.bak"),
+    get_file_path("completed_accounts.txt")
 ]
 
-def reset_data():
+def reset_data(force=False):
     console.print(Panel("[bold red]⚠️  WARNING: DATA PURGE[/bold red]\n[white]This will permanently delete your session credentials and processing history.[/white]", border_style="red"))
     
-    if Confirm.ask("[bold yellow]Are you sure you want to completely RESET all local data?[/bold yellow]", default=False):
+    if force or Confirm.ask("[bold yellow]Are you sure you want to completely RESET all local data?[/bold yellow]", default=False):
         table = Table(box=box.SIMPLE, show_header=False)
         table.add_column("Status", width=4)
         table.add_column("File")
