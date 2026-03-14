@@ -1,20 +1,22 @@
 FROM python:3.9-slim
 
-# Install dependencies for Google Chrome
+# Instal dependensi untuk Google Chrome (versi modern)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     unzip \
     curl \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
     libxrender1 \
     libxtst6 \
     libvulkan1 \
     libglib2.0-0 \
     libgtk-3-0 \
-    --no-install-recommends
+    libgbm1 \
+    libasound2 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome Stable
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
