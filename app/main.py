@@ -109,11 +109,13 @@ async def run_admin(
     random_names: bool = Form(False)
 ):
     domain = request.session.get('domain')
-    if not domain:
+    user = request.session.get('user')
+    if not domain or not user:
         return RedirectResponse(url='/login')
     
     success, msg = trigger_admin_bot(
         domain, 
+        user.get('email'),
         background_tasks,
         user_count=user_count,
         name_prefix=name_prefix,
@@ -124,19 +126,21 @@ async def run_admin(
 @app.post("/run/activator")
 async def run_activator(request: Request, background_tasks: BackgroundTasks):
     domain = request.session.get('domain')
-    if not domain:
+    user = request.session.get('user')
+    if not domain or not user:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_activator_bot(domain, background_tasks)
+    success, msg = trigger_activator_bot(domain, user.get('email'), background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/mass-delete")
 async def run_mass_delete(request: Request, background_tasks: BackgroundTasks):
     domain = request.session.get('domain')
-    if not domain:
+    user = request.session.get('user')
+    if not domain or not user:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_mass_delete(domain, background_tasks)
+    success, msg = trigger_mass_delete(domain, user.get('email'), background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/reset")

@@ -55,6 +55,10 @@ async def run_script_in_background(script_name: str, email: str = None, password
     if "reset_email" in script_name:
         cmd = [python_exe, script_path, "--force"]
 
+    # Force unbuffered output for Python so logs stream immediately
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+
     msg = f"Triggering bot: {' '.join(cmd)}"
     await broadcast_log(f"\n[SYSTEM] {msg}")
     
@@ -62,7 +66,8 @@ async def run_script_in_background(script_name: str, email: str = None, password
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT
+        stderr=asyncio.subprocess.STDOUT,
+        env=env
     )
     
     log_file = os.path.join(os.getcwd(), f"{script_name}.log")
@@ -88,16 +93,14 @@ async def run_script_in_background(script_name: str, email: str = None, password
     await process.wait()
     await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
-def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
-    creds = get_admin_credentials(domain)
-    if not creds:
-        return False, "Credentials not found for this domain."
+def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
+    password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "admin_login.py", 
-        creds["email"], 
-        creds["password"], 
+        admin_email, 
+        password, 
         domain,
         user_count=user_count,
         name_prefix=name_prefix,
@@ -105,30 +108,26 @@ def trigger_admin_bot(domain: str, background_tasks: BackgroundTasks, user_count
     )
     return True, "Admin bot triggered in background."
 
-def trigger_activator_bot(domain: str, background_tasks: BackgroundTasks):
-    creds = get_admin_credentials(domain)
-    if not creds:
-        return False, "Credentials not found for this domain."
+def trigger_activator_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks):
+    password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "google_workspace_activator.py", 
-        creds["email"], 
-        creds["password"], 
+        admin_email, 
+        password, 
         domain
     )
     return True, "Activator bot triggered in background."
 
-def trigger_mass_delete(domain: str, background_tasks: BackgroundTasks):
-    creds = get_admin_credentials(domain)
-    if not creds:
-        return False, "Credentials not found for this domain."
+def trigger_mass_delete(domain: str, admin_email: str, background_tasks: BackgroundTasks):
+    password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "admin_login.py", 
-        creds["email"], 
-        creds["password"], 
+        admin_email, 
+        password, 
         domain,
         action="delete"
     )
