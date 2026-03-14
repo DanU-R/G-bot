@@ -93,14 +93,20 @@ async def run_script_in_background(script_name: str, email: str = None, password
     await process.wait()
     await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
-def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, password: str = None, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
-    if not password:
+def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
+    # Coba tarik dari database dulu
+    creds = get_admin_credentials(domain)
+    if creds:
+        email = creds["email"]
+        password = creds["password"]
+    else:
+        email = admin_email
         password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "admin_login.py", 
-        admin_email, 
+        email, 
         password, 
         domain,
         user_count=user_count,
@@ -110,25 +116,38 @@ def trigger_admin_bot(domain: str, admin_email: str, background_tasks: Backgroun
     return True, "Admin bot triggered in background."
 
 def trigger_activator_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks):
-    password = os.getenv("DEFAULT_PASSWORD", "")
+    # Coba tarik dari database dulu
+    creds = get_admin_credentials(domain)
+    if creds:
+        email = creds["email"]
+        password = creds["password"]
+    else:
+        email = admin_email
+        password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "google_workspace_activator.py", 
-        admin_email, 
+        email, 
         password, 
         domain
     )
     return True, "Activator bot triggered in background."
 
-def trigger_mass_delete(domain: str, admin_email: str, background_tasks: BackgroundTasks, password: str = None):
-    if not password:
+def trigger_mass_delete(domain: str, admin_email: str, background_tasks: BackgroundTasks):
+    # Coba tarik dari database dulu
+    creds = get_admin_credentials(domain)
+    if creds:
+        email = creds["email"]
+        password = creds["password"]
+    else:
+        email = admin_email
         password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "admin_login.py", 
-        admin_email, 
+        email, 
         password, 
         domain,
         action="delete"

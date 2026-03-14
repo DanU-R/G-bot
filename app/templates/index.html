@@ -42,6 +42,11 @@
             <button onclick="openModal('resetDataModal')" class="btn btn-primary" style="width: 100%; background: #a855f7;">Reset Local Data</button>
         </div>
 
+        <div class="glass-panel" style="padding: 1.5rem; border-color: rgba(251, 188, 5, 0.3);">
+            <h3>Settings</h3>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Configure admin credentials for <strong>{{ domain }}</strong>.</p>
+            <a href="/settings" class="btn btn-outline" style="width: 100%; text-align: center; box-sizing: border-box;">Open Settings</a>
+        </div>
     </div>
 
     <div class="glass-panel" style="margin-top: 2rem; padding: 1.5rem; border-color: rgba(255, 255, 255, 0.2);">
@@ -83,10 +88,6 @@
                     <input type="text" name="name_prefix" value="User" style="margin-top: 0.5rem; border-radius: 8px;">
                 </div>
             </div>
-            <div>
-                <label style="font-size: 0.9rem; opacity: 0.8;">Admin Password:</label>
-                <input type="password" name="password" placeholder="Leave blank to use DEFAULT_PASSWORD ENV" style="margin-top: 0.5rem; border-radius: 8px;">
-            </div>
             <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
                 <input type="checkbox" id="random_names" name="random_names" value="true" style="width: auto; margin: 0; accent-color: #4285F4; transform: scale(1.2);">
                 <label for="random_names" style="font-size: 0.9rem; opacity: 0.9;">Generate completely random names</label>
@@ -104,11 +105,7 @@
         </div>
         <p style="opacity: 0.9; line-height: 1.5;">Are you sure you want to completely clean up this workspace by deleting <strong style="color: #EA4335;">ALL</strong> users in bulk? This action cannot be easily undone.</p>
         <form action="/run/mass-delete" method="post">
-            <div style="margin-bottom: 1rem;">
-                <label style="font-size: 0.9rem; opacity: 0.8;">Confirm Admin Password:</label>
-                <input type="password" name="password" placeholder="Enter admin password" style="margin-top: 0.5rem; border-radius: 8px;">
-            </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; padding: 1rem; background: #EA4335;">Yes, Delete All Users</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem; padding: 1rem; background: #EA4335;">Yes, Delete All Users</button>
             <button type="button" onclick="closeModal('massDeleteModal')" class="btn btn-outline" style="width: 100%; margin-top: 0.8rem; padding: 1rem; border-color: var(--glass-border); color: var(--text);">Cancel</button>
         </form>
     </div>

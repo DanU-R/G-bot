@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -106,8 +107,7 @@ async def run_admin(
     background_tasks: BackgroundTasks,
     user_count: int = Form(4),
     name_prefix: str = Form("User"),
-    random_names: bool = Form(False),
-    password: Optional[str] = Form(None)
+    random_names: bool = Form(False)
 ):
     domain = request.session.get('domain')
     user = request.session.get('user')
@@ -118,7 +118,6 @@ async def run_admin(
         domain, 
         user.get('email'),
         background_tasks,
-        password=password,
         user_count=user_count,
         name_prefix=name_prefix,
         random_names=random_names
@@ -138,15 +137,14 @@ async def run_activator(request: Request, background_tasks: BackgroundTasks):
 @app.post("/run/mass-delete")
 async def run_mass_delete(
     request: Request, 
-    background_tasks: BackgroundTasks,
-    password: Optional[str] = Form(None)
+    background_tasks: BackgroundTasks
 ):
     domain = request.session.get('domain')
     user = request.session.get('user')
     if not domain or not user:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_mass_delete(domain, user.get('email'), background_tasks, password=password)
+    success, msg = trigger_mass_delete(domain, user.get('email'), background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/reset")
