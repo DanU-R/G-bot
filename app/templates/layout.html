@@ -107,8 +107,8 @@
     <nav>
         <div class="logo">Google Workspace AutoBot</div>
         <div>
-            {% if session.get('user') %}
-                <span style="margin-right: 1rem;">{{ session.user.email }} ({{ session.domain }})</span>
+            {% if request.session.get('user') %}
+                <span style="margin-right: 1rem;">{{ request.session.get('user').get('email') }} ({{ request.session.get('domain') }})</span>
                 <a href="/logout" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Logout</a>
             {% endif %}
         </div>
