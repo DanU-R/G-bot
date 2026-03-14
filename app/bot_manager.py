@@ -93,8 +93,9 @@ async def run_script_in_background(script_name: str, email: str = None, password
     await process.wait()
     await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
-def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
-    password = os.getenv("DEFAULT_PASSWORD", "")
+def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, password: str = None, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
+    if not password:
+        password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
@@ -120,8 +121,9 @@ def trigger_activator_bot(domain: str, admin_email: str, background_tasks: Backg
     )
     return True, "Activator bot triggered in background."
 
-def trigger_mass_delete(domain: str, admin_email: str, background_tasks: BackgroundTasks):
-    password = os.getenv("DEFAULT_PASSWORD", "")
+def trigger_mass_delete(domain: str, admin_email: str, background_tasks: BackgroundTasks, password: str = None):
+    if not password:
+        password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
