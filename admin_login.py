@@ -3,6 +3,8 @@ import os
 import json
 import time
 import random
+import argparse
+from dotenv import load_dotenv
 from urllib.parse import urlparse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
