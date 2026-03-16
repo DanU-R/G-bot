@@ -4,7 +4,6 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTa
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 
 from .encryption import save_admin_credentials, get_admin_credentials
@@ -122,13 +121,13 @@ async def run_admin(
     random_names: bool = Form(False)
 ):
     domain = request.session.get('domain')
-    user = request.session.get('user')
-    if not domain or not user:
+    email = request.session.get('email')
+    if not domain or not email:
         return RedirectResponse(url='/login')
     
     success, msg = trigger_admin_bot(
         domain, 
-        user.get('email'),
+        email,
         background_tasks,
         user_count=user_count,
         name_prefix=name_prefix,
@@ -139,11 +138,11 @@ async def run_admin(
 @app.post("/run/activator")
 async def run_activator(request: Request, background_tasks: BackgroundTasks):
     domain = request.session.get('domain')
-    user = request.session.get('user')
-    if not domain or not user:
+    email = request.session.get('email')
+    if not domain or not email:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_activator_bot(domain, user.get('email'), background_tasks)
+    success, msg = trigger_activator_bot(domain, email, background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/mass-delete")
@@ -152,11 +151,11 @@ async def run_mass_delete(
     background_tasks: BackgroundTasks
 ):
     domain = request.session.get('domain')
-    user = request.session.get('user')
-    if not domain or not user:
+    email = request.session.get('email')
+    if not domain or not email:
         return RedirectResponse(url='/login')
     
-    success, msg = trigger_mass_delete(domain, user.get('email'), background_tasks)
+    success, msg = trigger_mass_delete(domain, email, background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
 
 @app.post("/run/reset")
@@ -177,12 +176,12 @@ async def websocket_logs(websocket: WebSocket):
             data = await websocket.receive_text()
             # Session promotion logic: When bot confirms dashboard entry
             if data == "promote_session":
-                temp_email = websocket.scope["session"].get("temp_email")
+                session = websocket.scope.get("session", {})
+                temp_email = session.get("temp_email")
                 if temp_email:
                     websocket.scope["session"]["logged_in"] = True
                     websocket.scope["session"]["email"] = temp_email
-                    # Don't pop yet to avoid race conditions with other bot triggers if needed
-                    # but clear password from session for security
+                    # Clear password from session for security
                     websocket.scope["session"].pop("temp_password", None)
                     print(f"[SYSTEM] Session promoted for {temp_email}")
     except WebSocketDisconnect:
@@ -191,4 +190,5 @@ async def websocket_logs(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
