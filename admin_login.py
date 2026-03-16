@@ -236,6 +236,7 @@ def login_admin_console(action=None, headless=False):
     def create_options():
         opts = webdriver.ChromeOptions()
         # Essential flags for Docker/Linux Native Chrome
+        opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--disable-gpu")
