@@ -93,27 +93,27 @@ async def run_script_in_background(script_name: str, email: str = None, password
     await process.wait()
     await broadcast_log(f"[SYSTEM] Bot finished with code {process.returncode}\n")
 
-def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False):
-    # Coba tarik dari database dulu
-    creds = get_admin_credentials(domain)
-    if creds:
-        email = creds["email"]
-        password = creds["password"]
-    else:
-        email = admin_email
-        password = os.getenv("DEFAULT_PASSWORD", "")
+def trigger_admin_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks, user_count: int = 4, name_prefix: str = "User", random_names: bool = False, password: str = None):
+    # Coba tarik dari parameter (sync session), lalu database, lalu env
+    if not password:
+        creds = get_admin_credentials(domain)
+        if creds:
+            admin_email = creds["email"]
+            password = creds["password"]
+        else:
+            password = os.getenv("DEFAULT_PASSWORD", "")
     
     background_tasks.add_task(
         run_script_in_background, 
         "admin_login.py", 
-        email, 
+        admin_email, 
         password, 
         domain,
         user_count=user_count,
         name_prefix=name_prefix,
         random_names=random_names
     )
-    return True, "Admin bot triggered in background."
+    return True, "Admin bot triggered in background"
 
 def trigger_activator_bot(domain: str, admin_email: str, background_tasks: BackgroundTasks):
     # Coba tarik dari database dulu

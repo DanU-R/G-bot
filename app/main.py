@@ -14,100 +14,80 @@ load_dotenv()
 
 app = FastAPI(title="Google Workspace AutoBot")
 
-# Session & OAuth setup
+# Session setup
 SECRET_KEY = os.getenv("SESSION_SECRET", "super-secret-key")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
-
-oauth = OAuth()
-oauth.register(
-    name='google',
-    client_id=os.getenv('GOOGLE_CLIENT_ID'),
-    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
-)
 
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, msg: str = None):
-    user = request.session.get('user')
-    if not user:
+    # Authenticated if the bot successfully established a session
+    if not request.session.get('logged_in'):
         return RedirectResponse(url='/login')
     
+    email = request.session.get('email')
     domain = request.session.get('domain')
     return templates.TemplateResponse("index.html", {
         "request": request, 
-        "user": user, 
+        "email": email, 
         "domain": domain,
         "msg": msg
     })
 
-@app.get("/login")
-async def login(request: Request):
-    redirect_uri = request.url_for('auth_callback')
-    return await oauth.google.authorize_redirect(request, str(redirect_uri))
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
-@app.get("/auth/callback")
-async def auth_callback(request: Request):
-    token = await oauth.google.authorize_access_token(request)
-    user = token.get('userinfo')
-    if user:
-        request.session['user'] = user
-        # Ekstrak domain dari email
-        email = user.get('email', '')
-        if '@' in email:
-            domain = email.split('@')[1]
-            request.session['domain'] = domain
-            
+@app.post("/login")
+async def process_login(request: Request, email: str = Form(...), password: str = Form(...)):
+    if '@' not in email:
+        return RedirectResponse(url='/login?error=Invalid email')
+    
+    domain = email.split('@')[1]
+    request.session['temp_email'] = email
+    request.session['temp_password'] = password
+    request.session['domain'] = domain
+    
     return RedirectResponse(url='/sync-session')
 
 @app.get("/sync-session", response_class=HTMLResponse)
 async def sync_page(request: Request):
-    user = request.session.get('user')
-    if not user:
+    email = request.session.get('temp_email')
+    if not email:
         return RedirectResponse(url='/login')
     
     domain = request.session.get('domain')
     return templates.TemplateResponse("sync.html", {
         "request": request,
-        "user": user,
+        "email": email,
         "domain": domain
     })
 
 @app.post("/sync-session")
-async def start_sync_session(request: Request, background_tasks: BackgroundTasks, password: Optional[str] = Form(None)):
-    user = request.session.get('user')
+async def start_sync_session(request: Request, background_tasks: BackgroundTasks):
+    email = request.session.get('temp_email')
+    password = request.session.get('temp_password')
     domain = request.session.get('domain')
-    if not user or not domain:
-        raise HTTPException(status_code=403, detail="Not logged in")
     
-    email = user.get('email')
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Missing credentials in session")
     
-    # Save password for future "One Login" experience
-    if password:
-        save_admin_credentials(domain, email, password)
-    else:
-        # Check if we already have it
-        creds = get_admin_credentials(domain)
-        if not creds:
-             raise HTTPException(status_code=400, detail="Password required for first-time sync")
-        password = creds['password']
-
     # Trigger Selenium sync in background
-    trigger_admin_bot(domain, email, background_tasks)
+    trigger_admin_bot(domain, email, background_tasks, password=password)
     return {"status": "sync_started"}
 
 @app.get("/logout")
 async def logout(request: Request):
-    request.session.pop('user', None)
-    request.session.pop('domain', None)
+    # Clear both permanent and temporary session data
+    for key in ['email', 'temp_email', 'temp_password', 'domain', 'logged_in']:
+        request.session.pop(key, None)
     return RedirectResponse(url='/login')
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     domain = request.session.get('domain')
-    if not domain:
+    if not request.session.get('logged_in') or not domain:
         return RedirectResponse(url='/login')
     
     creds = get_admin_credentials(domain)
@@ -194,8 +174,17 @@ async def websocket_logs(websocket: WebSocket):
     active_connections.append(websocket)
     try:
         while True:
-            # Keep connection open and wait for messages (e.g. ping)
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            # Session promotion logic: When bot confirms dashboard entry
+            if data == "promote_session":
+                temp_email = websocket.scope["session"].get("temp_email")
+                if temp_email:
+                    websocket.scope["session"]["logged_in"] = True
+                    websocket.scope["session"]["email"] = temp_email
+                    # Don't pop yet to avoid race conditions with other bot triggers if needed
+                    # but clear password from session for security
+                    websocket.scope["session"].pop("temp_password", None)
+                    print(f"[SYSTEM] Session promoted for {temp_email}")
     except WebSocketDisconnect:
         if websocket in active_connections:
             active_connections.remove(websocket)

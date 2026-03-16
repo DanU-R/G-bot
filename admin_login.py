@@ -187,13 +187,30 @@ def find_chrome_executable():
 
 def handle_suspended_subscription(driver):
     try:
-        suspended = driver.find_elements(By.XPATH, "//h1[contains(text(), 'Langganan ditangguhkan')]")
+        suspended = driver.find_elements(By.XPATH, "//h1[contains(text(), 'Langganan ditangguhkan')] | //h1[contains(text(), 'Subscription suspended')]")
         if suspended and suspended[0].is_displayed():
-            upgrade_btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'MINTA UPGRADE')]/ancestor::div[@role='button']")))
+            print("[ALERT] Subscription suspended detected. Requesting upgrade...")
+            upgrade_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'MINTA UPGRADE')]/ancestor::div[@role='button'] | //span[contains(text(), 'REQUEST UPGRADE')]/ancestor::div[@role='button']")))
+            
+            main_window = driver.current_window_handle
             safe_click(driver, upgrade_btn)
-            time.sleep(2)
+            random_delay(2, 4)
+            
+            # Google often opens a Support tab. Close any tab that isn't the main one.
+            all_windows = driver.window_handles
+            if len(all_windows) > 1:
+                for window in all_windows:
+                    if window != main_window:
+                        driver.switch_to.window(window)
+                        print(f"[PROCESS] Closing extra support tab: {driver.current_url}")
+                        driver.close()
+                driver.switch_to.window(main_window)
+            
+            # Return to main dashboard link
             driver.get("https://admin.google.com/u/0/")
-    except: pass
+            random_delay(3, 5)
+    except Exception as e:
+        print(f"[DEBUG] handle_suspended_subscription error: {e}")
 
 def login_admin_console(action=None, headless=False):
     if not ADMIN_EMAIL:
@@ -225,12 +242,17 @@ def login_admin_console(action=None, headless=False):
         time.sleep(5)
         
         # Check if already logged in (look for dashboard elements)
-        if "admin.google.com" in driver.current_url and "ServiceLogin" not in driver.current_url:
+        if "admin.google.com" in driver.current_url and "ServiceLogin" not in driver.current_url and "Logout" not in driver.current_url:
             print("[SUCCESS] Active session found! Proceeding without login.")
             handle_suspended_subscription(driver)
+            
+            # Verify we are on the final dashboard URL
+            WebDriverWait(driver, 20).until(lambda d: "admin.google.com/u/0/" in d.current_url or "ac/home" in d.current_url)
+            print(f"[SUCCESS] Final Dashboard reached: {driver.current_url}")
+            
             if action == "delete": run_mass_delete(driver)
             elif action == "create": run_batch_creation(driver)
-            return
+            return True
 
         if "signin" in driver.current_url or "ServiceLogin" in driver.current_url:
             if not ADMIN_PASSWORD:
