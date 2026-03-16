@@ -6,11 +6,14 @@ import random
 import argparse
 from dotenv import load_dotenv
 from urllib.parse import urlparse
+import requests
+import logging
+import tempfile
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.chrome.service import Service
 from selenium_stealth import stealth
 from rich.console import Console
@@ -253,18 +256,9 @@ def login_admin_console(action=None, headless=False):
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         opts.add_experimental_option('useAutomationExtension', False)
         
-        prof_base = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
-        os.makedirs(prof_base, exist_ok=True)
-        
-        # Aggressively clear locks from previous crashes
-        for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
-            lock_path = os.path.join(prof_base, lock_name)
-            if os.path.exists(lock_path):
-                try:
-                    os.remove(lock_path)
-                    print(f"[PROCESS] Cleared {lock_name}.")
-                except:
-                    pass
+        # Use a completely unique, temporary directory for every browser instance
+        # This prevents "profile in use" crashes when multiple bots run concurrently in Railway
+        prof_base = tempfile.mkdtemp(prefix="chrome_profile_")
         
         opts.add_argument(f"--user-data-dir={prof_base}")
         return opts
