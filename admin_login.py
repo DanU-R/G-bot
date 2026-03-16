@@ -234,28 +234,39 @@ def login_admin_console(action=None, headless=False):
 
     def create_options():
         opts = uc.ChromeOptions()
-        if is_headless:
-            opts.add_argument("--headless") # uc handles 'new' internally if headless=True
-            opts.add_argument("--window-size=1920,1080")
-            opts.add_argument("--disable-gpu")
-            opts.add_argument("--no-sandbox")
-            opts.add_argument("--disable-dev-shm-usage")
-            opts.add_argument("--disable-software-rasterizer")
-            opts.add_argument("--disable-extensions")
-            opts.add_argument("--remote-debugging-port=9222")
+        # Essential flags for Docker/Linux instability
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--disable-setuid-sandbox")
+        opts.add_argument("--disable-software-rasterizer")
+        opts.add_argument("--disable-features=VizDisplayCompositor")
+        opts.add_argument("--window-size=1920,1080")
         
-        prof_path = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
-        opts.add_argument(f"--user-data-dir={prof_path}")
+        # Use a sub-directory in the persistent profile to avoid locking issues
+        prof_base = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
+        # Add a unique suffix per run if we suspect locking, but for now just ensure path exists
+        os.makedirs(prof_base, exist_ok=True)
+        opts.add_argument(f"--user-data-dir={prof_base}")
         return opts
 
     chrome_path = find_chrome_executable()
+    print(f"[PROCESS] Chrome Path: {chrome_path}")
+    
     try:
         options = create_options()
-        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=is_headless)
+        # headless=is_headless already applies internal uc patches, adding it to options is redundant/harmful
+        driver = uc.Chrome(
+            options=options, 
+            browser_executable_path=chrome_path, 
+            headless=is_headless,
+            use_subprocess=True # Use subprocess for better stability on Linux
+        )
     except Exception as e:
-        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying without path... ({e})")
-        options = create_options() # RE-CREATE to avoid RuntimeError
-        driver = uc.Chrome(options=options, headless=is_headless)
+        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying simplified... ({e})")
+        time.sleep(2)
+        options = create_options()
+        driver = uc.Chrome(options=options, headless=is_headless, use_subprocess=True)
     
     print("[PROCESS] Driver initialized successfully.")
 
