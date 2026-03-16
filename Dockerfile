@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 
-# Instal dependensi dasar sistem
+# 1. Instal dependensi dasar sistem termasuk gnupg, curl, dan Xvfb (Virtual Display)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -17,17 +17,12 @@ RUN apt-get update && apt-get install -y \
     libnss3 \
     libgbm1 \
     libasound2 \
-    libxss1 \
-    libxtst6 \
-    fonts-liberation \
-    libappindicator3-1 \
-    libxdamage1 \
     libglib2.0-0 \
     --no-install-recommends
 
-# Instal Google Chrome Stable secara resmi
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+# 2. Instal Google Chrome Stable dengan cara modern
+RUN curl -fSsL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /usr/share/keyrings/google-chrome.gpg > /dev/null \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
     && apt-get clean \
@@ -36,21 +31,21 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 # Set direktori kerja
 WORKDIR /app
 
-# Instal dependensi Python
+# 3. Instal dependensi Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Salin seluruh kode proyek
+# 4. Salin seluruh kode proyek
 COPY . .
 
-# Warm up Selenium to pre-cache driver
+# Warm up Selenium (Pre-cache driver)
 RUN python warmup.py || true
 
-# Pastikan folder profile ada (untuk Volume)
+# Pastikan folder profile ada (untuk Railway Volume)
 RUN mkdir -p /app/chrome_profile
 
-# Ekspos port yang digunakan Railway
+# Ekspos port default Railway
 EXPOSE 8080
 
-# Perintah untuk menjalankan FastAPI dengan Xvfb
+# Jalankan FastAPI menggunakan uvicorn (dengan Xvfb untuk Headful Stealth)
 CMD Xvfb :99 -ac -screen 0 1920x1080x24 & uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
