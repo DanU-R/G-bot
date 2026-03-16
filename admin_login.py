@@ -243,6 +243,7 @@ def login_admin_console(action=None, headless=False):
     profile_path = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
     options.add_argument(f"--user-data-dir={profile_path}")
 
+    print(f"[PROCESS] Initializing Chrome Driver (Headless: {is_headless})...")
     chrome_path = find_chrome_executable()
     try:
         # Pass headless=is_headless directly to constructor for uc patches
@@ -250,11 +251,16 @@ def login_admin_console(action=None, headless=False):
     except Exception as e:
         print(f"[PROCESS] Warning: Initial uc initialization failed, retrying... ({e})")
         driver = uc.Chrome(options=options, headless=is_headless)
+    
+    print("[PROCESS] Driver initialized successfully.")
 
     try:
-        print("[PROCESS] Checking current login session...")
+        print(f"[PROCESS] Navigating to {ADMIN_CONSOLE_URL}...")
+        driver.set_page_load_timeout(30) # Prevent indefinite hanging
         driver.get(ADMIN_CONSOLE_URL)
+        print("[PROCESS] Page navigation command sent. Waiting for load...")
         time.sleep(5)
+        print(f"[PROCESS] Current URL after load: {driver.current_url}")
         
         # Check if already logged in (look for dashboard elements)
         if "admin.google.com" in driver.current_url and "ServiceLogin" not in driver.current_url and "Logout" not in driver.current_url:
