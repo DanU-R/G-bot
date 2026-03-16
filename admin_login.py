@@ -255,18 +255,18 @@ def login_admin_console(action=None, headless=False):
     
     try:
         options = create_options()
-        # headless=is_headless already applies internal uc patches, adding it to options is redundant/harmful
+        # headless=False because Xvfb provides the virtual display
         driver = uc.Chrome(
             options=options, 
             browser_executable_path=chrome_path, 
-            headless=is_headless,
+            headless=False,
             use_subprocess=True # Use subprocess for better stability on Linux
         )
     except Exception as e:
         print(f"[PROCESS] Warning: Initial uc initialization failed, retrying simplified... ({e})")
         time.sleep(2)
         options = create_options()
-        driver = uc.Chrome(options=options, headless=is_headless, use_subprocess=True)
+        driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
     
     print("[PROCESS] Driver initialized successfully.")
 

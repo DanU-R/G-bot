@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     unzip \
     curl \
+    xvfb \
     libnss3 \
     libfontconfig1 \
     libxrender1 \
@@ -39,7 +40,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Warm up Selenium to pre-cache driver
-RUN python warmup.py
+RUN xvfb-run -a python warmup.py
 
 # Create directory for chrome profile
 RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
@@ -47,4 +48,4 @@ RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
 EXPOSE 8000
 
 # Use shell form to allow variable expansion for Railway PORT
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"
+CMD xvfb-run -a uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"

@@ -5,7 +5,6 @@ import sys
 def warmup():
     print("Pre-caching Chrome driver for undetected-chromedriver...")
     options = uc.ChromeOptions()
-    options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument("--disable-gpu")
@@ -14,7 +13,7 @@ def warmup():
     
     # Force download of the driver during build
     try:
-        driver = uc.Chrome(options=options, headless=True)
+        driver = uc.Chrome(options=options, headless=False)
         print(f"Successfully cached driver at: {driver.patcher.exe_path}")
         driver.quit()
     except Exception as e:
