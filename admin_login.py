@@ -230,6 +230,8 @@ def login_admin_console(action=None, headless=False):
     if not ADMIN_PASSWORD:
         print("WARNING: Admin password missing. Assuming active persistent session exists.")
 
+    is_headless = headless or args.headless
+
     def create_options():
         opts = uc.ChromeOptions()
         if is_headless:
