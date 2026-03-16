@@ -272,18 +272,30 @@ def login_admin_console(action=None, headless=False):
     chrome_path = find_chrome_executable()
     print(f"[PROCESS] Chrome Path: {chrome_path}")
     
+    # Enable verbose logging for ChromeDriver
+    log_path = "/app/chromedriver.log"
+    if os.path.exists(log_path):
+        os.remove(log_path)
+    
     try:
         options = create_options()
         if chrome_path:
             options.binary_location = chrome_path
-        driver = webdriver.Chrome(options=options)
+        service = Service(service_args=["--verbose", f"--log-path={log_path}"])
+        driver = webdriver.Chrome(service=service, options=options)
     except Exception as e:
         print(f"[PROCESS] Warning: Initial WebDriver initialization failed, retrying... ({e})")
+        if os.path.exists(log_path):
+            with open(log_path, "r") as f:
+                print("--- CHROMEDRIVER LOGS (ATTEMPT 1) ---")
+                print(f.read())
+                print("-------------------------------------")
         time.sleep(2)
         options = create_options()
         if chrome_path:
             options.binary_location = chrome_path
-        driver = webdriver.Chrome(options=options)
+        service = Service(service_args=["--verbose", f"--log-path={log_path}"])
+        driver = webdriver.Chrome(service=service, options=options)
     
     print("[PROCESS] Driver initialized successfully. Applying stealth...")
 
