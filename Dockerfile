@@ -32,6 +32,7 @@ RUN curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dea
 # Set environment
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV DISPLAY=:99
 
 WORKDIR /app
 
@@ -50,5 +51,5 @@ RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
 
 EXPOSE 8000
 
-# Use shell form to allow variable expansion for Railway PORT
-CMD xvfb-run -a uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"
+# Start Xvfb in the background and then run uvicorn
+CMD Xvfb :99 -ac -screen 0 1920x1080x24 & uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"

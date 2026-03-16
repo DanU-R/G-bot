@@ -11,9 +11,9 @@ def warmup():
     options.add_argument("--disable-software-rasterizer")
     options.add_argument("--remote-debugging-port=9222")
     
-    # Force download of the driver during build
+    # Force download of the driver during build (must be headless if Xvfb isn't running yet)
     try:
-        driver = uc.Chrome(options=options, headless=False)
+        driver = uc.Chrome(options=options, headless=True)
         print(f"Successfully cached driver at: {driver.patcher.exe_path}")
         driver.quit()
     except Exception as e:
