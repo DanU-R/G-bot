@@ -95,11 +95,19 @@ def create_temp_mail_account():
         print(f"Error creating temp mail: {e}")
         return None, None
 
-def safe_click(driver, element):
+def safe_click(driver, element, use_js=False):
     try:
-        element.click()
-    except Exception:
-        driver.execute_script("arguments[0].click();", element)
+        if use_js:
+            driver.execute_script("arguments[0].click();", element)
+        else:
+            element.click()
+    except Exception as e:
+        try:
+            # Fallback to JS click if normal click fails
+            driver.execute_script("arguments[0].click();", element)
+        except Exception as e2:
+            print(f"[DEBUG] safe_click failed: {e2}")
+            raise e2
 
 def human_type(element, text):
     for char in text:
@@ -221,20 +229,27 @@ def login_admin_console(action=None, headless=False):
         print("WARNING: Admin password missing. Assuming active persistent session exists.")
 
     options = uc.ChromeOptions()
-    if headless or args.headless:
+    is_headless = headless or args.headless
+    
+    if is_headless:
         options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-gpu")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--disable-extensions")
     
     profile_path = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
     options.add_argument(f"--user-data-dir={profile_path}")
 
     chrome_path = find_chrome_executable()
     try:
-        driver = uc.Chrome(options=options, browser_executable_path=chrome_path)
-    except:
-        driver = uc.Chrome(options=options)
+        # Pass headless=is_headless directly to constructor for uc patches
+        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=is_headless)
+    except Exception as e:
+        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying... ({e})")
+        driver = uc.Chrome(options=options, headless=is_headless)
 
     try:
         print("[PROCESS] Checking current login session...")
@@ -265,7 +280,9 @@ def login_admin_console(action=None, headless=False):
             
             print("[PROCESS] Clicking Next...")
             next_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "identifierNext")))
-            safe_click(driver, next_btn)
+            # Use JS click for critical navigation to avoid some uc-related crashes
+            random_delay(1, 2)
+            safe_click(driver, next_btn, use_js=True)
             
             # Wait for either password field OR an error/security check
             print("[PROCESS] Waiting for password field...")
@@ -274,7 +291,8 @@ def login_admin_console(action=None, headless=False):
                 human_type(password_input, ADMIN_PASSWORD)
                 
                 pass_next = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "passwordNext")))
-                safe_click(driver, pass_next)
+                random_delay(1, 2)
+                safe_click(driver, pass_next, use_js=True)
                 
                 print("[PROCESS] Finalizing login...")
                 WebDriverWait(driver, 60).until(lambda d: "admin.google.com" in d.current_url)
