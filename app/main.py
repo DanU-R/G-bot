@@ -41,14 +41,14 @@ async def login_page(request: Request):
 @app.post("/login")
 async def process_login(request: Request, email: str = Form(...), password: str = Form(...)):
     if '@' not in email:
-        return RedirectResponse(url='/login?error=Invalid email')
+        return RedirectResponse(url='/login?error=Invalid email', status_code=303)
     
     domain = email.split('@')[1]
     request.session['temp_email'] = email
     request.session['temp_password'] = password
     request.session['domain'] = domain
     
-    return RedirectResponse(url='/sync-session')
+    return RedirectResponse(url='/sync-session', status_code=303)
 
 @app.get("/sync-session", response_class=HTMLResponse)
 async def sync_page(request: Request):
@@ -140,7 +140,7 @@ async def run_activator(request: Request, background_tasks: BackgroundTasks):
     domain = request.session.get('domain')
     email = request.session.get('email')
     if not domain or not email:
-        return RedirectResponse(url='/login')
+        return RedirectResponse(url='/login', status_code=303)
     
     success, msg = trigger_activator_bot(domain, email, background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
@@ -153,7 +153,7 @@ async def run_mass_delete(
     domain = request.session.get('domain')
     email = request.session.get('email')
     if not domain or not email:
-        return RedirectResponse(url='/login')
+        return RedirectResponse(url='/login', status_code=303)
     
     success, msg = trigger_mass_delete(domain, email, background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
@@ -162,7 +162,7 @@ async def run_mass_delete(
 async def run_reset(request: Request, background_tasks: BackgroundTasks):
     domain = request.session.get('domain')
     if not domain:
-        return RedirectResponse(url='/login')
+        return RedirectResponse(url='/login', status_code=303)
     
     success, msg = trigger_reset_data(background_tasks)
     return RedirectResponse(url='/?msg=' + msg, status_code=303)
