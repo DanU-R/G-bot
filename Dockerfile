@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     xvfb \
+    x11-utils \
     libnss3 \
     libfontconfig1 \
     libxrender1 \
@@ -16,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libgbm1 \
     libasound2 \
+    libx11-xcb1 \
+    libxcb-dri3-0 \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,8 +42,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Warm up Selenium to pre-cache driver
-RUN xvfb-run -a python warmup.py
+# Warm up Selenium to pre-cache driver (tolerates failure during build)
+RUN python warmup.py
 
 # Create directory for chrome profile
 RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
