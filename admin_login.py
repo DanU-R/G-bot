@@ -248,8 +248,13 @@ def login_admin_console(action=None, headless=False):
 
     def create_options():
         opts = webdriver.ChromeOptions()
-        # Essential flags for Docker/Linux Native Chrome
-        opts.add_argument("--headless=new")
+        
+        # Switch to "Headful" mode for Linux/Railway
+        # Since Xvfb is running (DISPLAY=:99), removing --headless makes Chrome 
+        # render a real window in the buffer, which is much stealthier.
+        # opts.add_argument("--headless=new") # REMOVED for headful stealth
+        
+        # Essential flags for Docker/Linux Native Chrome (remains necessary)
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--disable-gpu")
@@ -261,6 +266,9 @@ def login_admin_console(action=None, headless=False):
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--no-first-run")
         opts.add_argument("--no-default-browser-check")
+        
+        # Additional hardware spoofing
+        opts.add_argument("--disable-infobars")
         
         # Exclude switches to prevent the "Chrome is being controlled by automated test software" bar
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -312,6 +320,11 @@ def login_admin_console(action=None, headless=False):
         renderer="Intel Iris OpenGL Engine",
         fix_hairline=True,
     )
+    
+    # Hide automation-sensitive properties further
+    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    })
 
     try:
         print(f"[PROCESS] Navigating to {ADMIN_CONSOLE_URL}...")
@@ -402,8 +415,13 @@ def login_admin_console(action=None, headless=False):
                     except:
                         print("[ERROR] Verification timed out.")
                         raise e
-                elif "captcha" in body_text:
-                    print("[SECURITY] Google is showing a CAPTCHA. Automation blocked.")
+                elif "captcha" in body_text or "type the text" in body_text or "pencetakan" in body_text:
+                    print("\n" + "!"*60)
+                    print(" [SECURITY] GOOGLE IS SHOWING A CAPTCHA ".center(60, "!"))
+                    print("!"*60)
+                    print("Google has detected automation and is requiring a CAPTCHA solve.")
+                    print("The 'Headful Xvfb' strategy helps prevent this, but it may still occur")
+                    print("on fresh server IPs.")
                 elif "aman" in body_text or "secure" in body_text or "tidak aman" in body_text:
                     print("\n" + "!"*60)
                     print(" [CRITICAL] GOOGLE BLOCKED THIS BROWSER (NOT SECURE) ".center(60, "!"))
@@ -428,6 +446,7 @@ def login_admin_console(action=None, headless=False):
         import traceback
         print(f"[ERROR] Selenium Exception: {str(e)}")
         print(f"[TRACEBACK] {traceback.format_exc()}")
+        sys.exit(1)
     finally:
         if not headless and not args.headless:
             try:

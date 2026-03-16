@@ -38,7 +38,7 @@ async def run_script_in_background(script_name: str, email: str = None, password
         cmd.extend(["--password", password])
     if domain:
         cmd.extend(["--domain", domain])
-    cmd.append("--headless")
+    # cmd.append("--headless") # REMOVED: Script now handles its own headless logic (Headful Xvfb)
     
     if "admin_login" in script_name:
         if "delete" in kwargs.get("action", ""):
