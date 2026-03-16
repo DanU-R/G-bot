@@ -12,6 +12,7 @@ import tempfile
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
@@ -114,10 +115,18 @@ def safe_click(driver, element, use_js=False):
             print(f"[DEBUG] safe_click failed: {e2}")
             raise e2
 
-def human_type(element, text):
-    for char in text:
-        element.send_keys(char)
-        time.sleep(random.uniform(0.05, 0.2))
+def human_type(element, text, use_actions=False, driver=None):
+    if use_actions and driver:
+        actions = ActionChains(driver)
+        actions.move_to_element(element).click()
+        for char in text:
+            actions.send_keys(char)
+            actions.pause(random.uniform(0.05, 0.2))
+        actions.perform()
+    else:
+        for char in text:
+            element.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.2))
 
 def create_bulk_users(driver, user_data_list, secondary_email, domain=""):
     console.print(Panel(f"[bold blue]--- Starting Bulk Creation for {len(user_data_list)} Users ---[/bold blue]", box=box.SIMPLE))
@@ -332,28 +341,29 @@ def login_admin_console(action=None, headless=False):
                 
             print("[PROCESS] Identifying email field...")
             email_input = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
-            email_input.clear() # Ensure clean field
-            human_type(email_input, ADMIN_EMAIL)
+            email_input.clear()
+            human_type(email_input, ADMIN_EMAIL, use_actions=True, driver=driver)
             random_delay(0.5, 1)
             
-            print("[PROCESS] Submitting email (ENTER)...")
-            email_input.send_keys(Keys.ENTER)
+            print("[PROCESS] Submitting email (ENTER via Actions)...")
+            ActionChains(driver).send_keys(Keys.ENTER).perform()
             
             # Wait a few seconds to see if transition happens, else try button click
-            time.sleep(3)
+            time.sleep(4)
             if "identifier" in driver.current_url:
-                print("[PROCESS] Enter key didn't work, trying Next button click...")
+                print("[PROCESS] Enter key didn't work, trying robust Next button click...")
                 try:
                     next_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "identifierNext")))
                     random_delay(0.5, 1)
-                    # Try normal click first
+                    # Use ActionChains to click
+                    ActionChains(driver).move_to_element(next_btn).click().perform()
+                except Exception as e_click:
+                    print(f"[PROCESS] Button click also failed, trying final JS click... ({e_click})")
                     try:
-                        next_btn.click()
-                    except:
-                        # Fallback to JS click
+                        next_btn = driver.find_element(By.ID, "identifierNext")
                         safe_click(driver, next_btn, use_js=True)
-                except:
-                    print("[ERROR] Next button not found or obscured.")
+                    except:
+                        pass
             
             # Wait for either password field OR an error/security check
             print("[PROCESS] Waiting for password field...")
@@ -394,8 +404,16 @@ def login_admin_console(action=None, headless=False):
                         raise e
                 elif "captcha" in body_text:
                     print("[SECURITY] Google is showing a CAPTCHA. Automation blocked.")
+                elif "aman" in body_text or "secure" in body_text or "tidak aman" in body_text:
+                    print("\n" + "!"*60)
+                    print(" [CRITICAL] GOOGLE BLOCKED THIS BROWSER (NOT SECURE) ".center(60, "!"))
+                    print("!"*60)
+                    print("Google has detected this instance as automated and blocked the login.")
+                    print("This is common on Linux servers like Railway.")
                 elif "salah" in body_text or "not find" in body_text or "wrong" in body_text:
                     print("[ERROR] Google rejected the email or password. Please check your credentials.")
+                else:
+                    print(f"[PROCESS] Final body text snippet: {body_text[:500]}...")
                 
                 raise e # Re-raise to trigger the main exception handler with traceback
 
