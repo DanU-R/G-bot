@@ -11,6 +11,7 @@ import logging
 import tempfile
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
@@ -331,13 +332,28 @@ def login_admin_console(action=None, headless=False):
                 
             print("[PROCESS] Identifying email field...")
             email_input = WebDriverWait(driver, 20).until(EC.visibility_of_element_located((By.CSS_SELECTOR, "input[type='email']")))
+            email_input.clear() # Ensure clean field
             human_type(email_input, ADMIN_EMAIL)
+            random_delay(0.5, 1)
             
-            print("[PROCESS] Clicking Next...")
-            next_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "identifierNext")))
-            # Use JS click for critical navigation to avoid some uc-related crashes
-            random_delay(1, 2)
-            safe_click(driver, next_btn, use_js=True)
+            print("[PROCESS] Submitting email (ENTER)...")
+            email_input.send_keys(Keys.ENTER)
+            
+            # Wait a few seconds to see if transition happens, else try button click
+            time.sleep(3)
+            if "identifier" in driver.current_url:
+                print("[PROCESS] Enter key didn't work, trying Next button click...")
+                try:
+                    next_btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "identifierNext")))
+                    random_delay(0.5, 1)
+                    # Try normal click first
+                    try:
+                        next_btn.click()
+                    except:
+                        # Fallback to JS click
+                        safe_click(driver, next_btn, use_js=True)
+                except:
+                    print("[ERROR] Next button not found or obscured.")
             
             # Wait for either password field OR an error/security check
             print("[PROCESS] Waiting for password field...")
