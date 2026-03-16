@@ -230,28 +230,29 @@ def login_admin_console(action=None, headless=False):
     if not ADMIN_PASSWORD:
         print("WARNING: Admin password missing. Assuming active persistent session exists.")
 
-    options = uc.ChromeOptions()
-    is_headless = headless or args.headless
-    
-    if is_headless:
-        options.add_argument("--headless=new")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-extensions")
-    
-    profile_path = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
-    options.add_argument(f"--user-data-dir={profile_path}")
+    def create_options():
+        opts = uc.ChromeOptions()
+        if is_headless:
+            opts.add_argument("--headless") # uc handles 'new' internally if headless=True
+            opts.add_argument("--window-size=1920,1080")
+            opts.add_argument("--disable-gpu")
+            opts.add_argument("--no-sandbox")
+            opts.add_argument("--disable-dev-shm-usage")
+            opts.add_argument("--disable-software-rasterizer")
+            opts.add_argument("--disable-extensions")
+            opts.add_argument("--remote-debugging-port=9222")
+        
+        prof_path = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
+        opts.add_argument(f"--user-data-dir={prof_path}")
+        return opts
 
-    print(f"[PROCESS] Initializing Chrome Driver (Headless: {is_headless})...")
     chrome_path = find_chrome_executable()
     try:
-        # Pass headless=is_headless directly to constructor for uc patches
+        options = create_options()
         driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=is_headless)
     except Exception as e:
-        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying... ({e})")
+        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying without path... ({e})")
+        options = create_options() # RE-CREATE to avoid RuntimeError
         driver = uc.Chrome(options=options, headless=is_headless)
     
     print("[PROCESS] Driver initialized successfully.")
