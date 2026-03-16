@@ -1,55 +1,56 @@
+# Menggunakan base image Python yang stabil
 FROM python:3.9-slim
 
-# Instal dependensi untuk Google Chrome (versi modern)
+# Mencegah Python membuat file .pyc dan memastikan log langsung muncul
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DISPLAY=:99
+
+# Instal dependensi dasar sistem
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
-    unzip \
     curl \
+    unzip \
     xvfb \
     x11-utils \
     libnss3 \
-    libfontconfig1 \
-    libxrender1 \
-    libxtst6 \
-    libvulkan1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
     libgbm1 \
     libasound2 \
-    libx11-xcb1 \
-    libxcb-dri3-0 \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+    libxss1 \
+    libxtst6 \
+    fonts-liberation \
+    libappindicator3-1 \
+    libxdamage1 \
+    libglib2.0-0 \
+    --no-install-recommends
 
-# Install Google Chrome Stable
-RUN curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+# Instal Google Chrome Stable secara resmi
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV DISPLAY=:99
-
+# Set direktori kerja
 WORKDIR /app
 
-# Copy requirement files and install
+# Instal dependensi Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Salin seluruh kode proyek
 COPY . .
 
-# Warm up Selenium to pre-cache driver (tolerates failure during build)
-RUN python warmup.py
+# Warm up Selenium to pre-cache driver
+RUN python warmup.py || true
 
-# Create directory for chrome profile
-RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
+# Pastikan folder profile ada (untuk Volume)
+RUN mkdir -p /app/chrome_profile
 
-EXPOSE 8000
+# Ekspos port yang digunakan Railway
+EXPOSE 8080
 
-# Start Xvfb in the background and then run uvicorn
-CMD Xvfb :99 -ac -screen 0 1920x1080x24 & uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips="*"
+# Perintah untuk menjalankan FastAPI dengan Xvfb
+CMD Xvfb :99 -ac -screen 0 1920x1080x24 & uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
