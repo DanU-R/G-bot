@@ -38,6 +38,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
+# Warm up Selenium to pre-cache driver
+RUN python warmup.py
+
 # Create directory for chrome profile
 RUN mkdir -p /app/chrome_profile && chmod 777 /app/chrome_profile
 

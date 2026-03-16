@@ -186,11 +186,13 @@ def run_batch_creation(driver):
         
     create_bulk_users(driver, user_list, temp_email, domain=domain_name)
 
-CHROME_BINARY_PATH = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
 def find_chrome_executable():
-    if os.path.exists(CHROME_BINARY_PATH): return CHROME_BINARY_PATH
+    # Priority for Linux (Railway)
     if os.path.exists("/usr/bin/google-chrome"): return "/usr/bin/google-chrome"
     if os.path.exists("/usr/bin/google-chrome-stable"): return "/usr/bin/google-chrome-stable"
+    # Fallback for Windows (Local)
+    win_local = r"C:\Users\LENOVO\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe"
+    if os.path.exists(win_local): return win_local
     return None
 
 def handle_suspended_subscription(driver):
