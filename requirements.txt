@@ -1,6 +1,7 @@
 requests
 beautifulsoup4
-undetected-chromedriver
+selenium
+selenium-stealth
 setuptools
 python-dotenv
 rich

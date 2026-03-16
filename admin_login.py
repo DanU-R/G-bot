@@ -1,17 +1,16 @@
+import sys
 import os
+import json
 import time
 import random
-import sys
-import argparse
-from dotenv import load_dotenv
-import undetected_chromedriver as uc
+from urllib.parse import urlparse
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
-import requests
-import json
-import string
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
+from selenium.webdriver.chrome.service import Service
+from selenium_stealth import stealth
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -233,14 +232,13 @@ def login_admin_console(action=None, headless=False):
     is_headless = headless or args.headless
 
     def create_options():
-        opts = uc.ChromeOptions()
-        # Essential flags for Docker/Linux instability
+        opts = webdriver.ChromeOptions()
+        # Essential flags for Docker/Linux Native Chrome
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--disable-gpu")
         opts.add_argument("--disable-setuid-sandbox")
         opts.add_argument("--disable-software-rasterizer")
-        opts.add_argument("--disable-features=VizDisplayCompositor")
         opts.add_argument("--window-size=1920,1080")
         
         # Anti-detection flags
@@ -248,11 +246,14 @@ def login_admin_console(action=None, headless=False):
         opts.add_argument("--no-first-run")
         opts.add_argument("--no-default-browser-check")
         
-        # Use absolute path for profiles in Docker
+        # Exclude switches to prevent the "Chrome is being controlled by automated test software" bar
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option('useAutomationExtension', False)
+        
         prof_base = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
         os.makedirs(prof_base, exist_ok=True)
         
-        # Aggressively clear locks from previous crashes to prevent "chrome not reachable" errors
+        # Aggressively clear locks from previous crashes
         for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
             lock_path = os.path.join(prof_base, lock_name)
             if os.path.exists(lock_path):
@@ -270,20 +271,26 @@ def login_admin_console(action=None, headless=False):
     
     try:
         options = create_options()
-        # headless=False because Xvfb provides the virtual display
-        driver = uc.Chrome(
-            options=options, 
-            browser_executable_path=chrome_path, 
-            headless=False
-            # Let use_subprocess default to True
-        )
+        service = Service(executable_path=chrome_path) if chrome_path else Service()
+        driver = webdriver.Chrome(service=service, options=options)
     except Exception as e:
-        print(f"[PROCESS] Warning: Initial uc initialization failed, retrying simplified... ({e})")
+        print(f"[PROCESS] Warning: Initial WebDriver initialization failed, retrying... ({e})")
         time.sleep(2)
         options = create_options()
-        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=False)
+        service = Service(executable_path=chrome_path) if chrome_path else Service()
+        driver = webdriver.Chrome(service=service, options=options)
     
-    print("[PROCESS] Driver initialized successfully.")
+    print("[PROCESS] Driver initialized successfully. Applying stealth...")
+
+    # Apply stealth to evade Google's Bot detection
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
 
     try:
         print(f"[PROCESS] Navigating to {ADMIN_CONSOLE_URL}...")
