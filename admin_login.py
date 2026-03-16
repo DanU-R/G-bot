@@ -243,9 +243,13 @@ def login_admin_console(action=None, headless=False):
         opts.add_argument("--disable-features=VizDisplayCompositor")
         opts.add_argument("--window-size=1920,1080")
         
-        # Use a sub-directory in the persistent profile to avoid locking issues
+        # Anti-detection flags
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--no-first-run")
+        opts.add_argument("--no-default-browser-check")
+        
+        # Use absolute path for profiles in Docker
         prof_base = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
-        # Add a unique suffix per run if we suspect locking, but for now just ensure path exists
         os.makedirs(prof_base, exist_ok=True)
         opts.add_argument(f"--user-data-dir={prof_base}")
         return opts
@@ -260,13 +264,13 @@ def login_admin_console(action=None, headless=False):
             options=options, 
             browser_executable_path=chrome_path, 
             headless=False,
-            use_subprocess=True # Use subprocess for better stability on Linux
+            use_subprocess=False # Some Docker setups hate subprocess=True
         )
     except Exception as e:
         print(f"[PROCESS] Warning: Initial uc initialization failed, retrying simplified... ({e})")
         time.sleep(2)
         options = create_options()
-        driver = uc.Chrome(options=options, headless=False, use_subprocess=True)
+        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=False, use_subprocess=False)
     
     print("[PROCESS] Driver initialized successfully.")
 
