@@ -251,6 +251,17 @@ def login_admin_console(action=None, headless=False):
         # Use absolute path for profiles in Docker
         prof_base = "/app/chrome_profile" if os.path.exists("/app") else os.path.join(os.getcwd(), "chrome_profile")
         os.makedirs(prof_base, exist_ok=True)
+        
+        # Aggressively clear locks from previous crashes to prevent "chrome not reachable" errors
+        for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
+            lock_path = os.path.join(prof_base, lock_name)
+            if os.path.exists(lock_path):
+                try:
+                    os.remove(lock_path)
+                    print(f"[PROCESS] Cleared {lock_name}.")
+                except:
+                    pass
+        
         opts.add_argument(f"--user-data-dir={prof_base}")
         return opts
 
@@ -263,14 +274,14 @@ def login_admin_console(action=None, headless=False):
         driver = uc.Chrome(
             options=options, 
             browser_executable_path=chrome_path, 
-            headless=False,
-            use_subprocess=False # Some Docker setups hate subprocess=True
+            headless=False
+            # Let use_subprocess default to True
         )
     except Exception as e:
         print(f"[PROCESS] Warning: Initial uc initialization failed, retrying simplified... ({e})")
         time.sleep(2)
         options = create_options()
-        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=False, use_subprocess=False)
+        driver = uc.Chrome(options=options, browser_executable_path=chrome_path, headless=False)
     
     print("[PROCESS] Driver initialized successfully.")
 
