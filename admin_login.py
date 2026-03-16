@@ -273,14 +273,16 @@ def login_admin_console(action=None, headless=False):
     
     try:
         options = create_options()
-        service = Service(executable_path=chrome_path) if chrome_path else Service()
-        driver = webdriver.Chrome(service=service, options=options)
+        if chrome_path:
+            options.binary_location = chrome_path
+        driver = webdriver.Chrome(options=options)
     except Exception as e:
         print(f"[PROCESS] Warning: Initial WebDriver initialization failed, retrying... ({e})")
         time.sleep(2)
         options = create_options()
-        service = Service(executable_path=chrome_path) if chrome_path else Service()
-        driver = webdriver.Chrome(service=service, options=options)
+        if chrome_path:
+            options.binary_location = chrome_path
+        driver = webdriver.Chrome(options=options)
     
     print("[PROCESS] Driver initialized successfully. Applying stealth...")
 
